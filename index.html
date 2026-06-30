@@ -1,0 +1,1341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#eef1f6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Prompt Factory">
+<title>Prompt Factory</title>
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Prompt%20Factory%22%2C%22short_name%22%3A%22Prompt%20Factory%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23eef1f6%22%2C%22theme_color%22%3A%22%23eef1f6%22%2C%22start_url%22%3A%22.%22%7D">
+<style>
+:root{
+  --bg:#eef1f6; --card:#ffffff; --ink:#1d2330; --muted:#737d92;
+  --line:#e3e7ef; --line2:#d4dae6;
+  --signal:#3b6cff;   /* loss curve / primary */
+  --gold:#f2a900;     /* crit */
+  --teal:#12b886;     /* gains */
+  --pink:#e64980;     /* hype */
+  --red:#e8423f;      /* instability */
+  --grid:#eef1f6;
+  --mono:'SF Mono',ui-monospace,'Roboto Mono',Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--sans); background:var(--bg); color:var(--ink);
+  -webkit-user-select:none; user-select:none; touch-action:manipulation;
+  overscroll-behavior:none;
+  font-size:15px; line-height:1.4;
+}
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums;}
+#app{max-width:480px; margin:0 auto; padding:0 12px calc(28px + env(safe-area-inset-bottom)); }
+#shake{will-change:transform;}
+
+/* ---- crown bar ---- */
+.crown{
+  position:sticky; top:0; z-index:30; margin:0 -12px; padding:calc(8px + env(safe-area-inset-top)) 14px 8px;
+  background:linear-gradient(180deg,#fff,#fbfcfe); border-bottom:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+}
+.crown .cap{display:flex; flex-direction:column; min-width:0;}
+.crown .cap .lbl{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+.crown .cap .val{font-family:var(--mono); font-size:20px; font-weight:700; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.crown .cap .cls{font-size:11px; color:var(--signal); font-weight:600;}
+.crown .own{text-align:right;}
+.crown .own .val{font-family:var(--mono); font-size:20px; font-weight:700; line-height:1.1;}
+.crown .own .lbl{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+.era-chip{display:inline-block; font-size:10px; font-weight:700; color:#fff; background:var(--signal); padding:2px 7px; border-radius:20px; letter-spacing:.03em; margin-top:2px;}
+
+/* ---- resource ticker ---- */
+.ticker{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+.res{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 10px;}
+.res .top{display:flex; justify-content:space-between; align-items:baseline;}
+.res .name{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);}
+.res .rate{font-size:10px; font-family:var(--mono); color:var(--teal);}
+.res .amt{font-family:var(--mono); font-size:17px; font-weight:700; margin-top:1px;}
+.res.cash .amt{color:var(--teal);} .res.hype .amt{color:var(--pink);}
+.res .rate.dim{color:var(--muted);} .res .rate.hot{color:var(--pink);}
+.minirow{display:flex; gap:8px; margin-top:8px;}
+.mini{flex:1; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px 9px; display:flex; justify-content:space-between; align-items:baseline;}
+.mini .name{font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted);}
+.mini .amt{font-family:var(--mono); font-size:14px; font-weight:700;}
+
+/* ---- cards / sections ---- */
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; margin-top:12px;}
+.card h2{margin:0 0 8px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700; display:flex; justify-content:space-between; align-items:center;}
+.card h2 .hint{font-size:10px; color:var(--muted); text-transform:none; letter-spacing:0; font-weight:500;}
+
+/* ---- training plot ---- */
+#plotWrap{position:relative;}
+#plot{width:100%; height:172px; display:block; border-radius:10px; background:#fbfcfe; border:1px solid var(--line);}
+.plotmeta{display:flex; justify-content:space-between; margin-top:6px; font-family:var(--mono); font-size:11px; color:var(--muted);}
+.plotmeta b{color:var(--ink);}
+.runbar{height:8px; background:var(--line); border-radius:6px; margin-top:8px; overflow:hidden;}
+.runbar > i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--signal),#6f8cff); transition:width .08s linear;}
+.run-status{font-size:11px; color:var(--muted); margin-top:6px; text-align:center;}
+
+/* ---- buttons ---- */
+.btn{
+  appearance:none; border:none; border-radius:12px; font-family:var(--sans); font-weight:700;
+  font-size:15px; padding:13px 14px; color:#fff; background:var(--signal); width:100%;
+  cursor:pointer; transition:transform .05s, filter .12s, opacity .12s; position:relative; overflow:hidden;
+}
+.btn:active{transform:scale(.97);}
+.btn.sec{background:#eef2fb; color:var(--signal); border:1px solid #d8e2fb;}
+.btn.ghost{background:#f4f6fa; color:var(--ink); border:1px solid var(--line2);}
+.btn.gold{background:var(--gold);} .btn.teal{background:var(--teal);} .btn.pink{background:var(--pink);} .btn.red{background:var(--red);}
+.btn:disabled{opacity:.4; cursor:default; filter:grayscale(.3);}
+.btn .sub{display:block; font-size:11px; font-weight:600; opacity:.85; margin-top:2px; font-family:var(--mono);}
+.btnrow{display:grid; gap:8px; margin-top:8px;}
+.btnrow.two{grid-template-columns:1fr 1fr;}
+.btnrow.three{grid-template-columns:1fr 1fr 1fr;}
+.hero-tap{font-size:18px; padding:20px 14px; box-shadow:0 4px 0 #2b54cc;}
+.hero-tap:active{transform:translateY(3px); box-shadow:0 1px 0 #2b54cc;}
+
+/* ---- generators / upgrades list ---- */
+.item{display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--line);}
+.item:first-child{border-top:none;}
+.item .info{flex:1; min-width:0;}
+.item .info .nm{font-size:14px; font-weight:700; display:flex; align-items:center; gap:6px;}
+.item .info .ds{font-size:11px; color:var(--muted);}
+.item .info .ds .eff{color:var(--teal); font-family:var(--mono);}
+.item .own{font-family:var(--mono); font-size:13px; color:var(--muted); min-width:26px; text-align:right;}
+.buybtn{appearance:none; border:none; border-radius:10px; background:var(--signal); color:#fff; font-weight:700; font-family:var(--mono); font-size:13px; padding:9px 11px; min-width:74px; text-align:center; cursor:pointer;}
+.buybtn:active{transform:scale(.95);}
+.buybtn:disabled{background:#e7ebf3; color:#9aa3b5; cursor:default;}
+.buybtn .c{display:block; font-size:11px; font-weight:600;}
+
+/* models */
+.modelslots{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.slot{border:1px dashed var(--line2); border-radius:12px; padding:10px; min-height:70px; display:flex; flex-direction:column; justify-content:center;}
+.slot .stitle{font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);}
+.slot.filled{border-style:solid;}
+.slot.deployed{border-color:var(--teal); background:#f0fbf6;}
+.slot .mn{font-weight:700; font-family:var(--mono); font-size:15px;}
+.slot .mc{font-size:11px; color:var(--muted); font-family:var(--mono);}
+.empty-note{font-size:11px; color:var(--muted); text-align:center; padding:6px;}
+
+/* sliders */
+.sliderRow{margin-top:10px;}
+.sliderRow label{font-size:11px; color:var(--muted); display:flex; justify-content:space-between; font-family:var(--mono);}
+input[type=range]{width:100%; margin-top:6px; accent-color:var(--signal);}
+.opsgrid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px;}
+.opsstat{background:#f7f9fc; border:1px solid var(--line); border-radius:9px; padding:6px 8px;}
+.opsstat .k{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted);}
+.opsstat .v{font-family:var(--mono); font-weight:700; font-size:14px;}
+.opsstat .v.pos{color:var(--teal);} .opsstat .v.neg{color:var(--red);}
+
+/* teaser */
+.teaser{display:flex; gap:8px; align-items:center; padding:8px 0; color:var(--muted); font-size:12px; border-top:1px solid var(--line);}
+.teaser:first-child{border-top:none;}
+.teaser .ic{width:8px;height:8px;border-radius:50%;background:var(--line2);}
+
+/* toggles */
+.toggle{display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid var(--line);}
+.toggle:first-child{border-top:none;}
+.toggle .nm{font-weight:600; font-size:14px;}
+.switch{width:46px; height:27px; border-radius:20px; background:var(--line2); position:relative; transition:background .15s; flex:none;}
+.switch.on{background:var(--teal);}
+.switch i{position:absolute; top:3px; left:3px; width:21px; height:21px; border-radius:50%; background:#fff; transition:left .15s; box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.switch.on i{left:22px;}
+
+/* floating pops */
+#pops{position:fixed; inset:0; pointer-events:none; z-index:60; overflow:hidden;}
+.pop{position:absolute; font-family:var(--mono); font-weight:800; font-size:16px; color:var(--signal); transform:translate(-50%,-50%); animation:popUp .72s ease-out forwards; text-shadow:0 1px 2px rgba(255,255,255,.8);}
+.pop.crit{font-size:26px; color:var(--gold); text-shadow:0 2px 6px rgba(242,169,0,.4);}
+.pop.cash{color:var(--teal);} .pop.hype{color:var(--pink);} .pop.qual{color:#8a63d2;}
+@keyframes popUp{0%{opacity:0; transform:translate(-50%,-50%) scale(.6);}15%{opacity:1;}100%{opacity:0; transform:translate(-50%,-160%) scale(1.05);}}
+
+/* toast */
+#toasts{position:fixed; left:0; right:0; top:calc(8px + env(safe-area-inset-top)); z-index:70; display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none;}
+.toast{background:#1d2330; color:#fff; padding:10px 16px; border-radius:24px; font-size:13px; font-weight:600; box-shadow:0 6px 20px rgba(0,0,0,.18); animation:toastIn .25s ease-out, toastOut .3s ease-in 1.6s forwards; max-width:90%; text-align:center;}
+.toast.good{background:#0f9b6c;} .toast.warn{background:#d4820a;} .toast.bad{background:#d8312e;} .toast.epic{background:linear-gradient(90deg,#7048e8,#e64980);}
+@keyframes toastIn{from{opacity:0; transform:translateY(-12px);}to{opacity:1;transform:none;}}
+@keyframes toastOut{to{opacity:0; transform:translateY(-12px);}}
+
+/* event banner */
+#eventBanner{margin-top:12px; border-radius:14px; padding:11px 13px; display:none; align-items:center; gap:10px; color:#fff; font-size:13px; animation:toastIn .3s;}
+#eventBanner.show{display:flex;}
+#eventBanner .et{flex:1;} #eventBanner .et b{display:block; font-size:14px;}
+#eventBanner.good{background:linear-gradient(90deg,#0f9b6c,#12b886);}
+#eventBanner.bad{background:linear-gradient(90deg,#c92a2a,#e8423f);}
+#eventBanner.info{background:linear-gradient(90deg,#3b6cff,#6f8cff);}
+
+/* modal */
+.modal-bg{position:fixed; inset:0; background:rgba(20,24,34,.5); z-index:90; display:none; align-items:flex-end; justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--card); width:100%; max-width:480px; border-radius:18px 18px 0 0; padding:18px 16px calc(20px + env(safe-area-inset-bottom)); max-height:86vh; overflow:auto;}
+.modal h3{margin:0 0 4px; font-size:18px;}
+.modal p{font-size:13px; color:var(--muted); margin:4px 0 12px;}
+.modal .btn{margin-top:8px;}
+
+/* stabilize alert */
+#stabilizeWrap{display:none; margin-top:8px;}
+#stabilizeWrap.show{display:block;}
+.stab-btn{background:var(--red); animation:stabPulse .6s infinite alternate; box-shadow:0 4px 0 #a31f1c;}
+@keyframes stabPulse{from{filter:brightness(1);}to{filter:brightness(1.18);}}
+
+/* settings gear */
+#gear{position:absolute; right:14px; top:calc(8px + env(safe-area-inset-top)); width:30px; height:30px; opacity:0;}
+
+.footer{ text-align:center; margin-top:18px; font-size:11px; color:var(--muted);}
+.footer a, .linkbtn{color:var(--signal); text-decoration:underline; background:none; border:none; font-size:11px; cursor:pointer; font-family:var(--sans);}
+.victory{background:linear-gradient(135deg,#7048e8,#e64980); color:#fff; text-align:center;}
+.victory h2{color:#fff;}
+.flash-gold{animation:flashGold .4s;}
+@keyframes flashGold{0%{box-shadow:0 0 0 0 rgba(242,169,0,0);}30%{box-shadow:0 0 0 4px rgba(242,169,0,.5);}100%{box-shadow:0 0 0 0 rgba(242,169,0,0);}}
+.reduced *{animation:none !important; transition:none !important;}
+.hidden{display:none !important;}
+.lock{opacity:.5;}
+</style>
+</head>
+<body>
+<div id="shake">
+<div id="app">
+
+  <div class="crown">
+    <div class="cap">
+      <span class="lbl">Capability</span>
+      <span class="val num" id="capVal">0</span>
+      <span class="cls" id="capClass">no model yet</span>
+    </div>
+    <div class="own">
+      <span class="lbl">Ownership</span>
+      <div class="val num" id="ownVal">100%</div>
+      <span class="era-chip" id="eraChip">Era 0 · Garage</span>
+    </div>
+  </div>
+
+  <div class="ticker">
+    <div class="res"><div class="top"><span class="name">Compute</span><span class="rate" id="computeRate">+0.6/s</span></div><div class="amt num" id="computeVal">0</div></div>
+    <div class="res"><div class="top"><span class="name">Data</span><span class="rate dim" id="dataRate">manual</span></div><div class="amt num" id="dataVal">0</div></div>
+    <div class="res cash"><div class="top"><span class="name">Cash</span><span class="rate" id="cashRate">tap to serve</span></div><div class="amt num" id="cashVal">$0</div></div>
+    <div class="res hype"><div class="top"><span class="name">Hype</span><span class="rate hot" id="hypeRate">decaying</span></div><div class="amt num" id="hypeVal">0</div></div>
+  </div>
+  <div class="minirow">
+    <div class="mini"><span class="name">Data quality</span><span class="amt num" id="qualVal" style="color:#8a63d2">5</span></div>
+    <div class="mini" id="researchMini"><span class="name">Research</span><span class="amt num" id="researchVal">0</span></div>
+  </div>
+
+  <div id="eventBanner"><div class="et"><b id="evTitle"></b><span id="evDesc"></span></div></div>
+
+  <!-- victory -->
+  <div class="card victory hidden" id="victoryCard">
+    <h2 style="color:#fff;justify-content:center;">🌌 The Lightcone</h2>
+    <p style="color:#fff;opacity:.92;margin:6px 0;">Every star colonised. The lab runs the galaxy with zero human input — you automated yourself out of every job, all the way up. <b>You won.</b></p>
+    <div id="victoryStats" style="font-family:var(--mono);font-size:12px;opacity:.92;"></div>
+    <p style="color:#fff;opacity:.8;margin-top:6px;">Keep playing in this sandbox, or start a new generation to chase a higher score.</p>
+  </div>
+
+  <!-- training plot -->
+  <div class="card">
+    <h2>Training run <span class="hint" id="plotHint">tap to descend the loss curve</span></h2>
+    <div id="plotWrap"><canvas id="plot"></canvas></div>
+    <div class="plotmeta"><span>loss <b class="num" id="lossVal">—</b></span><span>step <b class="num" id="stepVal">0</b></span><span>target <b class="num" id="targetVal">0.25</b></span></div>
+    <div class="runbar"><i id="runFill"></i></div>
+    <div class="run-status" id="runStatus">No run in progress</div>
+    <div id="stabilizeWrap"><button class="btn stab-btn" id="stabilizeBtn">⚠ Stabilize the run! <span class="sub" id="stabTime">3.0s</span></button></div>
+  </div>
+
+  <!-- action bar -->
+  <div class="card">
+    <h2>Your work <span class="hint" id="comboHint"></span></h2>
+    <div id="allocWrap" class="hidden sliderRow">
+      <label><span>Allocation — params ↔ data <span id="chinHint"></span></span><span id="allocPct" class="num">50%</span></label>
+      <input type="range" id="allocSlider" min="0" max="100" value="50">
+    </div>
+    <button class="btn hero-tap" id="primaryBtn">Scrape data<span class="sub" id="primarySub">+2 data</span></button>
+    <div class="btnrow two" id="secondaryRow"></div>
+  </div>
+
+  <!-- models -->
+  <div class="card" id="modelsCard">
+    <h2>Models <span class="hint">deploy to earn cash</span></h2>
+    <div class="modelslots">
+      <div class="slot" id="internalSlot"><span class="stitle">Internal (frontier)</span><div id="internalBody"><div class="empty-note">no model yet</div></div></div>
+      <div class="slot" id="deployedSlot"><span class="stitle">Deployed (earning)</span><div id="deployedBody"><div class="empty-note">nothing deployed</div></div></div>
+    </div>
+    <button class="btn teal" id="deployBtn" style="margin-top:10px;">Deploy frontier model</button>
+  </div>
+
+  <!-- operations (E3+) -->
+  <div class="card hidden" id="opsCard">
+    <h2>Operations <span class="hint">split the compute pool</span></h2>
+    <div class="sliderRow">
+      <label><span>Train ↔ Serve</span><span class="num"><span id="trainPct">50</span>% train</span></label>
+      <input type="range" id="splitSlider" min="0" max="100" value="50">
+    </div>
+    <div class="sliderRow">
+      <label><span>Price per token</span><span class="num" id="priceLbl">$1.00</span></label>
+      <input type="range" id="priceSlider" min="20" max="300" value="100">
+    </div>
+    <div class="opsgrid">
+      <div class="opsstat"><div class="k">Demand</div><div class="v num" id="opDemand">0</div></div>
+      <div class="opsstat"><div class="k">Serve cap</div><div class="v num" id="opCap">0</div></div>
+      <div class="opsstat"><div class="k">Cost/token</div><div class="v num" id="opCost">$0</div></div>
+      <div class="opsstat"><div class="k">Net margin/s</div><div class="v num" id="opMargin">$0</div></div>
+    </div>
+  </div>
+
+  <!-- capital structure (E4+) -->
+  <div class="card hidden" id="capitalCard">
+    <h2>Capital structure <span class="hint">cash without dilution</span></h2>
+    <div id="capitalBody"></div>
+  </div>
+
+  <!-- generators -->
+  <div class="card">
+    <h2>Automate your work <span class="hint">they do your jobs</span></h2>
+    <div id="gensList"></div>
+  </div>
+
+  <!-- upgrades -->
+  <div class="card" id="upgradesCard">
+    <h2>Algorithmic upgrades <span class="hint">one-time multipliers</span></h2>
+    <div id="upgradesList"></div>
+  </div>
+
+  <!-- fundraising -->
+  <div class="card hidden" id="fundCard">
+    <h2>Fundraising <span class="hint">sell ownership for cash</span></h2>
+    <div class="opsgrid" style="grid-template-columns:1fr 1fr;">
+      <div class="opsstat"><div class="k">Valuation</div><div class="v num" id="valuationVal">$0</div></div>
+      <div class="opsstat"><div class="k">Stake value</div><div class="v num" id="stakeVal">$0</div></div>
+    </div>
+    <div class="sliderRow">
+      <label><span id="roundName">Pre-seed</span><span class="num" id="raiseAmt">$0</span></label>
+      <input type="range" id="raiseSlider" min="0" max="100" value="30">
+    </div>
+    <div class="run-status" id="raiseInfo"></div>
+    <button class="btn pink" id="raiseBtn">Raise</button>
+  </div>
+
+  <!-- automation inversion (E6+) -->
+  <div class="card hidden" id="autoCard">
+    <h2>Full automation <span class="hint">remove yourself from the loop</span></h2>
+    <div id="autoList"></div>
+  </div>
+
+  <!-- prestige -->
+  <div class="card hidden" id="prestigeCard">
+    <h2>Next generation <span class="hint">bank research, reset the lab</span></h2>
+    <p class="run-status" id="prestigeInfo"></p>
+    <button class="btn ghost" id="prestigeBtn">Start next generation</button>
+  </div>
+
+  <!-- next era teaser -->
+  <div class="card" id="teaserCard">
+    <h2>The road ahead</h2>
+    <div id="teaserList"></div>
+  </div>
+
+  <div class="footer">
+    Prompt Factory — build the lab that builds the future.<br>
+    <button class="linkbtn" id="openSettings">Settings</button> · <button class="linkbtn" id="aboutBtn">About</button>
+  </div>
+
+</div>
+</div>
+
+<div id="pops"></div>
+<div id="toasts"></div>
+<button id="gear"></button>
+
+<!-- settings modal -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <h3>Settings</h3>
+    <p>Your lab saves automatically on this device.</p>
+    <div class="toggle"><span class="nm">Reduced motion</span><div class="switch" id="rmSwitch"><i></i></div></div>
+    <div class="toggle"><span class="nm">Sound</span><div class="switch" id="soundSwitch"><i></i></div></div>
+    <button class="btn ghost" id="exportBtn">Export save</button>
+    <button class="btn ghost" id="importBtn">Import save</button>
+    <button class="btn red" id="wipeBtn">Erase everything &amp; restart</button>
+    <button class="btn sec" id="closeSettings">Close</button>
+  </div>
+</div>
+
+<!-- about / intro modal -->
+<div class="modal-bg" id="aboutModal">
+  <div class="modal">
+    <h3 id="aboutTitle">Prompt Factory</h3>
+    <p id="aboutBody"></p>
+    <button class="btn" id="closeAbout">Let's build</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   PROMPT FACTORY — single-file idle game
+   Engine + UI. State mutates only via actions/tick.
+   ============================================================ */
+
+/* ---------------- config / balance ---------------- */
+const C = {
+  STARTER_GPU: 0.6,
+  SCRAPE_BASE: 2.2,
+  CLEAN_YIELD: 3, CLEAN_DATA_COST: 4,   // cost-gate manual clean (anti clean-spam)
+  TRAIN_DATA_UNLOCK: 40,
+  STEP_BASE: 0.045, Q_COEF: 0.012, OPT_RATE: 1.1,
+  CRIT_P: 0.13, CRIT_MIN: 5, CRIT_MAX: 8,
+  COMBO_WINDOW: 900, COMBO_CAP: 3.2, COMBO_STEP: 0.18, COMBO_DECAY_PER_S: 2.4,
+  SERVE_BASIS: 0.8,
+  DEPLOY_HYPE: 22, EVAL_HYPE: 10, EVAL_CD: 6, HYPE_DECAY: 0.015,
+  GROWTH: 1.13, INSTAB_WINDOW: 3,
+  OFFLINE_RATE: 0.5, OFFLINE_CAP_S: 12*3600,
+  RESEARCH_K: 10, RESEARCH_THRESH: 5000,
+  ALLOC_P: 1.6,
+  SCHEMA: 3,
+};
+const CLASSES = ['GPT-1','GPT-2','GPT-3','GPT-4 class','GPT-5 class','Superhuman-narrow','AGI','ASI','Transcendent intelligence'];
+const ERAS = ['Garage','Seed Lab','Scaleup','Frontier','Industrial','Sovereign','AGI','The Lightcone'];
+const STARS_TO_WIN = 100;
+
+/* base ceiling: capability scale per successive model (gentle growth → many models per era) */
+const _ceil=[8]; function baseCeiling(n){ while(_ceil.length<=n){ _ceil.push(_ceil[_ceil.length-1]*1.45+5);} return _ceil[Math.max(0,n)]; }
+/* run start cost — the idle throttle: compute scales steeply so each run is a real accumulation gate */
+function runCost(idx){ return { data: 15*Math.pow(1.8,idx), compute: 12*Math.pow(2.15,idx) }; }
+/* capability needed to enter each era (≈10× per era) */
+const ERA_TH=[0, 8, 80, 800, 8000, 80000, 800000, 8000000];
+
+/* ---------------- generators ---------------- */
+/* effect handled in rates()/applyGen; here: metadata + cost */
+const GENS = [
+  {key:'scraper',  name:'Web scraper',        ds:'data', eff:'+0.8 data/s',      base:12,   growth:1.13, unlock:()=>true,                  era:0},
+  {key:'curator',  name:'Curation pipeline',  ds:'quality', eff:'+0.5 quality/s',base:30,   growth:1.13, unlock:()=>S.flags.cleanedOnce||S.data>=C.TRAIN_DATA_UNLOCK, era:0},
+  {key:'optimizer',name:'Auto-optimizer',     ds:'opt', eff:'auto gradient steps + auto-runs', base:80, growth:1.15, unlock:()=>S.flags.deployedOnce, era:0},
+  {key:'inference',name:'Inference cluster',  ds:'cash', eff:'passive serve cash',base:220,  growth:1.14, unlock:()=>S.flags.deployedOnce, era:1},
+  {key:'gpuRack',  name:'GPU rack',           ds:'compute', eff:'+2 compute/s',  base:160,  growth:1.13, unlock:()=>S.era>=1,              era:1},
+  {key:'autoEval', name:'Auto-eval suite',    ds:'hype', eff:'periodic hype',    base:340,  growth:1.16, unlock:()=>S.era>=1,              era:1},
+  {key:'autoRecovery',name:'Auto-recovery',   ds:'stab', eff:'auto-catches instability', base:600, growth:1.6, max:5, unlock:()=>S.era>=1, era:1},
+  {key:'cluster',  name:'GPU cluster',        ds:'compute', eff:'+12 compute/s', base:2200, growth:1.13, unlock:()=>S.era>=2,              era:2},
+  {key:'datacenter',name:'Datacenter',        ds:'compute', eff:'+80 compute/s', base:28000,growth:1.13, unlock:()=>S.era>=3,              era:3},
+  {key:'licensed', name:'Licensed corpora',   ds:'data', eff:'+14 data/s',       base:42000,growth:1.13, unlock:()=>S.era>=3,              era:3},
+  {key:'silicon',  name:'Custom silicon',     ds:'compute', eff:'+500 compute/s',base:480000,growth:1.13,unlock:()=>S.era>=4,              era:4},
+  {key:'synthetic',name:'Synthetic data',     ds:'data', eff:'+60 data/s × frontier flywheel', base:1.5e6, growth:1.13, unlock:()=>S.era>=5, era:5},
+  {key:'gigawatt', name:'Gigawatt campus',    ds:'compute', eff:'+3.5k compute/s',base:9e6,  growth:1.13, unlock:()=>S.era>=5,              era:5},
+  {key:'planetary',name:'Planetary compute',  ds:'compute', eff:'+25k compute/s',base:1.2e8, growth:1.13, unlock:()=>S.era>=6,              era:6},
+  {key:'dyson',    name:'Dyson swarm',        ds:'compute', eff:'+180k compute/s (energy)', base:4e9, growth:1.14, unlock:()=>S.era>=7,    era:7},
+  {key:'probes',   name:'Von Neumann probes', ds:'stars', eff:'self-replicating — colonise stars', base:2e10, growth:1.2, unlock:()=>S.era>=7, era:7},
+];
+const GEN_COMPUTE = {gpuRack:2, cluster:12, datacenter:80, silicon:500, gigawatt:3500, planetary:25000, dyson:180000};
+const GEN_DATA = {scraper:0.8, licensed:14};
+
+const UPGRADES = [
+  {key:'flashAttention', name:'Flash Attention', ds:'×1.6 compute efficiency', cost:500,   era:1},
+  {key:'moe',            name:'Mixture-of-Experts', ds:'×1.5 capability per run', cost:1600, era:2},
+  {key:'chinchilla',     name:'Chinchilla Scaling', ds:'reveals allocation optimum', cost:2400, era:2},
+  {key:'rlhf',           name:'RLHF', ds:'×1.6 serve cash', cost:9000, era:3},
+  {key:'distillation',   name:'Distillation', ds:'×1.4 serve; cheaper cost/token', cost:16000, era:3},
+  {key:'testTime',       name:'Test-time compute', ds:'×1.8 capability — but ↑cost/token', cost:90000, era:4},
+];
+
+const CAPITAL = [
+  {key:'debt',   name:'Venture debt',  ds:'Cash now, fixed burn, no dilution',    },
+  {key:'credits',name:'Compute credits', ds:'Compute now, repaid from margin'      },
+  {key:'prepay', name:'Cloud prepay',  ds:'Lock capital → −25% cost/token forever' },
+];
+
+const AUTOS = [
+  {key:'autoScrape', name:'Auto data ingest', verb:'scrape'},
+  {key:'autoServe',  name:'Auto serving',     verb:'serve'},
+  {key:'autoEvalT',  name:'Auto evals',       verb:'eval'},
+  {key:'autoDeploy', name:'Auto deploy newest',verb:'deploy'},
+  {key:'autoRaise',  name:'Auto fundraise (when needed)', verb:'raise'},
+];
+
+/* ---------------- state ---------------- */
+let S, R;
+function freshState(){
+  return {
+    schema_version:C.SCHEMA, last_saved_at:Date.now(),
+    compute:0, data:0, quality:5, cash:0, hype:0, research:0, energy:0, stars:0,
+    cumCash:0, lifetimeCompute:0, totalResearch:0,
+    ownership:1.0, modelIndex:0, bestCapability:0,
+    models:[],
+    run:null,
+    gens:{}, upgrades:{},
+    era:0,
+    flags:{ cleanedOnce:false, deployedOnce:false, firstRunDone:false, intro:false, won:false },
+    ops:{ trainFraction:0.5, price:1.0 },
+    capital:{ debt:0, credits:0, prepay:false, debtBurn:0 },
+    autos:{},
+    evalCd:0, eventTimer:38, activeEvent:null,
+    settings:{ reducedMotion:false, muted:false },
+    raiseCount:0,
+    bestStake:0,
+  };
+}
+function freshRuntime(){ return { combo:1, lastTap:0, lastLoss:null, plotPath:[], shakeUntil:0, dirty:true }; }
+
+/* ---------------- derived / selectors ---------------- */
+function researchMult(){ return 1 + S.research*0.03; }
+function computeMult(){ return (S.upgrades.flashAttention?1.6:1); }
+function dataMult(){ return 1; }
+function capabilityMult(){ let m=1; if(S.upgrades.moe)m*=1.5; if(S.upgrades.testTime)m*=1.8; return m; }
+function serveMult(){ let m=1; if(S.upgrades.rlhf)m*=1.6; if(S.upgrades.distillation)m*=1.4; return m; }
+function qualityFactor(){ return 1 + S.quality*C.Q_COEF; }
+function deployedCap(){ let c=0; for(const m of S.models) if(m.deployed && m.capability>c)c=m.capability; return c; }
+function frontierModel(){ let best=null; for(const m of S.models){ if(!best||m.capability>best.capability)best=m; } return best; }
+function genCount(k){ return S.gens[k]||0; }
+function genCost(k){ const g=GENS.find(x=>x.key===k); return Math.ceil(g.base*Math.pow(g.growth, genCount(k))); }
+
+function rates(){
+  const cm=computeMult()*researchMult();
+  let compute=C.STARTER_GPU;
+  for(const k in GEN_COMPUTE) compute += genCount(k)*GEN_COMPUTE[k];
+  compute*=cm;
+  let data=0;
+  for(const k in GEN_DATA) data += genCount(k)*GEN_DATA[k];
+  data += genCount('synthetic')*60*(1+S.bestCapability/600);
+  data*=dataMult()*researchMult();
+  let quality = genCount('curator')*0.5;
+  return {compute,data,quality};
+}
+
+/* unit-economics for ops (E3+) */
+function opsEconomics(){
+  const r=rates();
+  const computePool=r.compute;
+  const serveComputeRate = computePool*(1-S.ops.trainFraction);
+  const serveCap = serveComputeRate*45;                 // tokens/s capacity
+  const cap = Math.max(deployedCap(), 1);
+  const price=S.ops.price;
+  const priceFactor=Math.max(0.05, 2.0 - price);        // higher price → less demand
+  let demand = cap*1.4*(1+S.hype/120)*priceFactor*serveMult();
+  if(S.activeEvent && S.activeEvent.demandMult) demand*=S.activeEvent.demandMult;
+  let priceCap = price;
+  if(S.activeEvent && S.activeEvent.priceCap) priceCap=Math.min(price,S.activeEvent.priceCap);
+  let costPerToken = 0.35;
+  if(S.upgrades.distillation) costPerToken*=0.6;
+  if(S.capital.prepay) costPerToken*=0.75;
+  if(S.upgrades.testTime) costPerToken*=2.2;             // the designed trap
+  costPerToken/=Math.sqrt(researchMult());
+  const volume=Math.min(demand, serveCap);
+  const marginPerTok=(priceCap - costPerToken);
+  const cashPerSec=Math.max(-9e9, marginPerTok*volume);
+  return {serveCap,demand,costPerToken,volume,cashPerSec,price:priceCap,serveComputeRate,trainComputeRate:computePool*S.ops.trainFraction};
+}
+
+/* passive cash (inference cluster pre-E3, ops engine E3+) */
+function passiveCashPerSec(){
+  let c=0;
+  c += genCount('inference')*deployedCap()*0.045*serveMult();
+  if(S.era>=3){ c += opsEconomics().cashPerSec; }
+  return c;
+}
+function burnPerSec(){ return S.capital.debtBurn; }
+
+/* ---------------- juice ---------------- */
+function rollCrit(){ if(Math.random()<C.CRIT_P){ return C.CRIT_MIN+Math.random()*(C.CRIT_MAX-C.CRIT_MIN); } return 1; }
+function bumpCombo(){
+  const now=performance.now();
+  if(now-R.lastTap < C.COMBO_WINDOW){ R.combo=Math.min(C.COMBO_CAP, R.combo+C.COMBO_STEP); }
+  else R.combo=1+C.COMBO_STEP;
+  R.lastTap=now;
+}
+
+/* ---------------- actions ---------------- */
+function actScrape(x,y){
+  if(S.autos.autoScrape) return;
+  bumpCombo(); const crit=rollCrit();
+  const gain=C.SCRAPE_BASE*R.combo*crit;
+  S.data+=gain;
+  pop('+'+fmt(gain), x,y, crit>1?'crit':'');
+  if(crit>1){ sfx('crit'); vibrate(12); } else sfx('tap');
+}
+function actClean(x,y){
+  if(S.data < C.CLEAN_DATA_COST){ toast('Need data to clean','warn'); return; }
+  bumpCombo(); const crit=rollCrit();
+  S.data-=C.CLEAN_DATA_COST;
+  const gain=C.CLEAN_YIELD*Math.min(R.combo,2)*(crit>1?2:1);
+  S.quality+=gain; S.flags.cleanedOnce=true;
+  pop('+'+fmt(gain)+' Q', x,y,'qual');
+  if(crit>1){ sfx('crit'); vibrate(12); } else sfx('tap');
+}
+function canStartRun(){ const c=runCost(S.modelIndex); return !S.run && S.data>=c.data && S.compute>=c.compute; }
+function actStartRun(){
+  if(!canStartRun()) return;
+  const c=runCost(S.modelIndex);
+  S.data-=c.data; S.compute-=c.compute;
+  S.run={ progress:0, instability:null, scripted: !S.flags.firstRunDone, alloc:S.ops?0.5:0.5, divergeStrength:0 };
+  R.plotPath=[]; R.dirty=true;
+  toast('Run committed — '+fmt(c.data)+' data, '+fmt(c.compute)+' compute','info');
+}
+function actStep(x,y){
+  if(!S.run) return;
+  bumpCombo(); const crit=rollCrit();
+  const inc=C.STEP_BASE*qualityFactor()*crit*R.combo;
+  S.run.progress=Math.min(1, S.run.progress+inc);
+  pop((crit>1?'CRIT ':'')+'−loss', x,y, crit>1?'crit':'');
+  if(crit>1){ shake(); sfx('crit'); vibrate(12); } else sfx('tap');
+  if(S.run.progress>=1) resolveRun();
+}
+function ratioEfficiency(){
+  if(S.era<2) return 1.0;                       // allocation minigame is E2+
+  const alloc=S.run?S.run.alloc:0.5;
+  const opt=0.62;
+  let dist=Math.abs(alloc-opt)/0.62;
+  let eff=1-Math.pow(Math.min(1,dist), C.ALLOC_P);
+  if(S.upgrades.chinchilla) eff=Math.max(eff, 1-Math.pow(Math.min(1,dist*0.6),C.ALLOC_P));
+  return Math.max(0.18, eff);
+}
+function resolveRun(){
+  const idx=S.modelIndex;
+  const eff=ratioEfficiency();
+  let capTarget=baseCeiling(idx)*qualityFactor()*eff*capabilityMult()*researchMult();
+  if(S.activeEvent && S.activeEvent.capMult) capTarget*=S.activeEvent.capMult;
+  let outcome='success';
+  if(!S.run.scripted && S.era>=2 && eff<0.4){ outcome='plateau'; capTarget*=0.3; }
+  const m={ id:'m'+idx+'_'+Math.floor(S.lifetimeCompute), name:className(idx), index:idx, capability:capTarget, cls:className(idx), deployed:false };
+  S.models.push(m);
+  S.modelIndex++; S.flags.firstRunDone=true;
+  S.bestCapability=Math.max(S.bestCapability, capTarget);
+  S.run=null; R.plotPath=[];
+  // keep only most recent + best deployed model in list to limit growth
+  if(S.models.length>6) S.models=S.models.slice(-6);
+  shake(); sfx('born'); vibrate([15,30,15]);
+  toast((outcome==='plateau'?'⚠ Plateau — undertrained: ':'✦ ')+m.name+' born — capability '+fmt(capTarget), outcome==='plateau'?'warn':'epic');
+  if(S.autos.autoDeploy) actDeploy();
+  checkEra();
+  R.dirty=true;
+}
+function fireInstability(){
+  if(!S.run||S.run.instability||S.era<1) return;
+  if(genCount('autoRecovery')>0 && Math.random()<Math.min(0.95,0.4*genCount('autoRecovery'))){ return; } // auto-caught silently
+  S.run.instability={ timeLeft:C.INSTAB_WINDOW };
+  sfx('alarm'); vibrate(60);
+}
+function actStabilize(){
+  if(S.run&&S.run.instability){ S.run.instability=null; toast('Stabilised ✓','good'); sfx('eval'); }
+}
+function actDeploy(){
+  const f=frontierModel(); if(!f) return;
+  // deploy the best non-deployed model (frontier unless distillation holds it)
+  let target=null;
+  for(const m of S.models){ if(!m.deployed && (!target||m.capability>target.capability)) target=m; }
+  if(!target) return;
+  target.deployed=true;
+  if(!S.flags.deployedOnce){ S.flags.deployedOnce=true; }
+  S.hype+=C.DEPLOY_HYPE;
+  toast('Deployed '+target.name+' — +'+C.DEPLOY_HYPE+' hype','good');
+  sfx('deploy'); vibrate(20);
+  checkEra(); R.dirty=true;
+}
+function actServe(x,y){
+  if(S.autos.autoServe) return;
+  const cap=deployedCap(); if(cap<=0){ toast('Deploy a model first','warn'); return; }
+  bumpCombo(); const crit=rollCrit();
+  const gain=cap*C.SERVE_BASIS*R.combo*crit*serveMult();
+  S.cash+=gain; S.cumCash+=gain;
+  pop('+'+fmtCash(gain), x,y,'cash');
+  if(crit>1){ sfx('crit'); vibrate(12); } else sfx('tap');
+}
+function actEval(x,y){
+  if(S.evalCd>0){ return; }
+  S.evalCd=C.EVAL_CD; S.hype+=C.EVAL_HYPE;
+  pop('+'+C.EVAL_HYPE+' hype', x,y,'hype'); sfx('eval');
+}
+
+/* fundraising */
+function valuation(){
+  const f=frontierModel(); const cap=f?f.capability:0;
+  const v=(cap*55 + S.cumCash*0.9 + S.hype*40) * researchMult() * Math.pow(1.5,S.era);
+  return Math.max(50, v);
+}
+function actRaise(amount){
+  const val=valuation();
+  if(amount<=0) return;
+  const dilution=amount/(val+amount);
+  S.ownership*=(1-dilution);
+  S.cash+=amount;
+  S.raiseCount++;
+  toast('Raised '+fmtCash(amount)+' · ownership now '+(S.ownership*100).toFixed(1)+'%','good');
+  checkEra(); R.dirty=true;
+}
+function roundLabel(){
+  const names=['Pre-seed','Seed','Series A','Series B','Series C','Mega round','Nation-scale','Sovereign wealth'];
+  return names[Math.min(names.length-1,S.raiseCount)];
+}
+
+/* capital structure */
+function actCapital(key){
+  const econ = S.era>=3?opsEconomics():null;
+  if(key==='debt'){
+    const amt=valuation()*0.15;
+    S.cash+=amt; S.capital.debt+=amt; S.capital.debtBurn+=amt*0.004;
+    toast('Venture debt: +'+fmtCash(amt)+' (burn +'+fmtCash(amt*0.004)+'/s)','good');
+  } else if(key==='credits'){
+    const amt=rates().compute*600;
+    S.compute+=amt; S.capital.credits+=amt; S.capital.debtBurn+=amt*0.0006;
+    toast('Compute credits: +'+fmt(amt)+' compute','good');
+  } else if(key==='prepay'){
+    if(S.capital.prepay){ toast('Already prepaid','warn'); return; }
+    const cost=S.cash*0.5;
+    if(cost<10){ toast('Need more cash','warn'); return; }
+    S.cash-=cost; S.capital.prepay=true;
+    toast('Cloud prepay locked — cost/token −25% forever','good');
+  }
+  R.dirty=true;
+}
+
+/* generators + upgrades buy */
+function buyGen(k){
+  const cost=genCost(k); const g=GENS.find(x=>x.key===k);
+  if(g.max && genCount(k)>=g.max){ return; }
+  if(S.cash<cost) return;
+  S.cash-=cost; S.gens[k]=genCount(k)+1; R.dirty=true; sfx('buy');
+  if(k==='optimizer') toast('Auto-optimizer online — runs progress on their own','good');
+}
+function buyUpgrade(k){
+  const u=UPGRADES.find(x=>x.key===k); if(S.upgrades[k]||S.cash<u.cost) return;
+  S.cash-=u.cost; S.upgrades[k]=true; R.dirty=true; sfx('deploy');
+  toast(u.name+' acquired','good');
+}
+
+/* prestige */
+function researchGain(){ return Math.floor(C.RESEARCH_K*Math.sqrt(S.lifetimeCompute/C.RESEARCH_THRESH)); }
+function canPrestige(){ return S.era>=2 && researchGain()>=1; }
+function actPrestige(){
+  if(!canPrestige()) return;
+  const g=researchGain();
+  const keepResearch=S.research+g;
+  const keepTotal=S.totalResearch+g;
+  const keepBest=Math.max(S.bestCapability, S.bestCapability);
+  const keepStake=Math.max(S.bestStake, S.ownership*valuation());
+  const settings=S.settings;
+  S=freshState();
+  S.research=keepResearch; S.totalResearch=keepTotal; S.settings=settings;
+  S.bestStake=keepStake;
+  R=freshRuntime();
+  toast('New generation — +'+g+' research banked','epic');
+  R.dirty=true;
+}
+
+/* era progression — gated by capability thresholds (and the first deploy to leave the garage) */
+function checkEra(){
+  let e=0;
+  for(let i=1;i<=7;i++){ if(S.bestCapability>=ERA_TH[i]) e=i; else break; }
+  if(e>=1 && !S.flags.deployedOnce) e=0;   // must deploy your first model to leave Era 0
+  if(e<S.era) e=S.era;                      // eras are monotonic
+  if(e!==S.era){ const prev=S.era; S.era=e; onEraChange(e,prev); }
+  if(e>=7 && S.stars>=STARS_TO_WIN && !S.flags.won){ S.flags.won=true; onVictory(); }
+}
+function onEraChange(e,prev){
+  shake();
+  const lines=['', 'Era 1 — Seed Lab. Deploy, serve, and watch for instability.',
+    'Era 2 — Scaleup. Allocation matters now; fundraising opens.',
+    'Era 3 — Frontier. Operations: split compute between training & serving.',
+    'Era 4 — Industrial. Capital structure & pricing pressure; burn bites.',
+    'Era 5 — Sovereign. Profitability can self-fund you toward AGI.',
+    'Era 6 — AGI. You can now automate every click.',
+    'Era 7 — Post-AGI. Build the Dyson swarm, paint the galaxy with probes.'];
+  toast('▲ '+ERAS[e]+' reached', 'epic'); sfx('era'); vibrate([20,40,20]);
+  if(lines[e]) setTimeout(()=>toast(lines[e],'info'), 900);
+}
+function onVictory(){
+  toast('🌌 THE LIGHTCONE — the lab runs the galaxy with zero human input. You win.','epic');
+  sfx('win'); vibrate([30,60,30,60,80]);
+}
+
+/* ---------------- tick ---------------- */
+function tick(dt){
+  const r=rates();
+  S.compute += r.compute*dt;
+  S.data    += r.data*dt;
+  S.quality += r.quality*dt;
+  S.lifetimeCompute += r.compute*dt;
+  // hype decay
+  S.hype = Math.max(0, S.hype - S.hype*C.HYPE_DECAY*dt);
+  // eval cooldown + auto eval suite hype
+  S.evalCd=Math.max(0,S.evalCd-dt);
+  if(genCount('autoEval')>0){ S.hype += genCount('autoEval')*1.4*dt; }
+  // passive cash
+  const cps=passiveCashPerSec();
+  const burn=burnPerSec();
+  const net=cps-burn;
+  S.cash=Math.max(0, S.cash+net*dt);
+  if(net>0){ S.cumCash+=net*dt; }
+  // combo decay
+  if(R.combo>1){ R.combo=Math.max(1, R.combo - C.COMBO_DECAY_PER_S*dt); }
+  // run auto progress
+  if(S.run){
+    const oc=genCount('optimizer');
+    if(oc>0){
+      let boost=1; if(S.era>=3) boost=0.4+S.ops.trainFraction*1.6;
+      // diminishing returns on stacking optimizers so a run can't complete in a blink
+      const eff=Math.sqrt(oc);
+      const inc=C.STEP_BASE*qualityFactor()*eff*C.OPT_RATE*boost*dt;
+      S.run.progress=Math.min(1, S.run.progress+inc);
+    }
+    // instability
+    if(S.era>=1){
+      if(!S.run.instability){
+        const odds = 0.05*dt; // base rate
+        if(Math.random()<odds) fireInstability();
+      } else {
+        S.run.instability.timeLeft-=dt;
+        if(genCount('autoRecovery')>0){ S.run.instability=null; }
+        else if(S.run.instability.timeLeft<=0){
+          // miss → divergence creep
+          S.run.divergeStrength=(S.run.divergeStrength||0)+0.06;
+          S.run.progress=Math.max(0, S.run.progress - S.run.divergeStrength*dt);
+          if(S.run.progress<=0.001){
+            // abort with refunds
+            const c=runCost(S.modelIndex);
+            S.compute+=c.compute*0.5; S.research+=0;
+            toast('✗ Divergence — run lost. Partial compute refunded.','bad');
+            S.run=null; R.plotPath=[]; R.dirty=true;
+          }
+          // give a new window to recover
+          S.run.instability.timeLeft=C.INSTAB_WINDOW;
+        }
+      }
+    }
+    if(S.run && S.run.progress>=1) resolveRun();
+    // auto-start next run
+  }
+  if(!S.run && genCount('optimizer')>0 && canStartRun()){ actStartRun(); }
+  // automation verbs (E6+)
+  if(S.autos.autoScrape){ S.data += C.SCRAPE_BASE*1.5*dt; }
+  if(S.autos.autoServe){ const cap=deployedCap(); if(cap>0){ const g=cap*C.SERVE_BASIS*1.2*serveMult()*dt; S.cash+=g; S.cumCash+=g; } }
+  if(S.autos.autoEvalT && S.evalCd<=0){ actEval(); }
+  if(S.autos.autoDeploy){ const has=S.models.some(m=>!m.deployed && m.capability>deployedCap()); if(has) actDeploy(); }
+  if(S.autos.autoRaise && S.era>=2 && S.cash<runCost(S.modelIndex).data*0.2){ actRaise(valuation()*0.1); }
+  // stars / endgame — diminishing so painting the galaxy is a satisfying wind-down, not instant
+  if(genCount('probes')>0){ S.stars += Math.sqrt(genCount('probes'))*0.18*dt; if(S.stars>STARS_TO_WIN)S.stars=STARS_TO_WIN; }
+  if(genCount('dyson')>0){ S.energy += genCount('dyson')*50*dt; }
+  // events
+  tickEvents(dt);
+  // guards
+  sanitize();
+  checkEra();
+}
+
+function sanitize(){
+  const keys=['compute','data','quality','cash','hype','research','energy','stars','cumCash','lifetimeCompute'];
+  for(const k of keys){ const v=S[k];
+    if(isNaN(v)||v==null) S[k]=0;            // corrupt → safe default
+    else if(v===Infinity||v>1e300) S[k]=1e300; // overflow → clamp, never wipe progress
+    else if(v<0) S[k]=0;
+  }
+  if(S.ownership>1)S.ownership=1; if(S.ownership<0.0001)S.ownership=0.0001;
+}
+
+/* ---------------- events ---------------- */
+const EVENTS=[
+  {id:'breakthrough', era:1, type:'good', title:'Breakthrough paper', desc:'+free compute efficiency for a while', apply:s=>{s.computeBoost=1.5;}, dur:25, kind:'info'},
+  {id:'viral', era:1, type:'good', title:'Viral demo', desc:'Hype surges (+40)', apply:s=>{S.hype+=40;}, dur:0, kind:'good'},
+  {id:'shortage', era:2, type:'bad', title:'GPU shortage', desc:'Compute output halved temporarily', apply:s=>{s.computeBoost=0.5;}, dur:22, kind:'bad'},
+  {id:'competitor', era:3, type:'bad', title:'Open-weights release', desc:'A rival undercuts your price', apply:s=>{s.priceCap=0.8;}, dur:30, kind:'bad'},
+  {id:'demand', era:3, type:'good', title:'Demand spike', desc:'Serving demand way up', apply:s=>{s.demandMult=2.2;}, dur:24, kind:'good'},
+  {id:'safety', era:4, type:'bad', title:'Safety incident', desc:'Capability gains dampened until patched', apply:s=>{s.capMult=0.7;}, dur:26, kind:'bad'},
+];
+function tickEvents(dt){
+  if(S.activeEvent){
+    S.activeEvent.t-=dt;
+    if(S.activeEvent.t<=0){ S.activeEvent=null; hideBanner(); }
+  } else {
+    S.eventTimer-=dt;
+    if(S.eventTimer<=0){
+      S.eventTimer=45+Math.random()*55;
+      const pool=EVENTS.filter(e=>e.era<=S.era);
+      if(pool.length){
+        const e=pool[Math.floor(Math.random()*pool.length)];
+        const ev={id:e.id, t:e.dur, title:e.title, desc:e.desc};
+        e.apply(ev);
+        if(e.dur>0){ S.activeEvent=ev; showBanner(e); }
+        else { toast(e.title+' — '+e.desc, e.kind); }
+      }
+    }
+  }
+  // apply computeBoost from event into rates() — handled via flag
+}
+
+/* event compute boost integrated into rates() */
+const _origRates=rates;
+function ratesBoosted(){ const r=_origRates(); if(S.activeEvent&&S.activeEvent.computeBoost) r.compute*=S.activeEvent.computeBoost; return r; }
+// override
+rates = ratesBoosted; // eslint-disable-line
+
+/* ---------------- formatting ---------------- */
+const SUF=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
+function fmt(n){
+  if(n===Infinity)return '∞'; if(!isFinite(n)||isNaN(n))return '0';
+  if(n<0)return '-'+fmt(-n);
+  if(n<1000){ return n<10?(Math.round(n*10)/10).toString():Math.round(n).toString(); }
+  let t=0; while(n>=1000 && t<SUF.length-1){ n/=1000; t++; }
+  return (n<10?n.toFixed(2):n<100?n.toFixed(1):Math.round(n))+SUF[t];
+}
+function fmtCash(n){ return '$'+fmt(n); }
+function className(idx){ return CLASSES[Math.min(idx,CLASSES.length-1)]; }
+
+/* ---------------- DOM refs ---------------- */
+const $=id=>document.getElementById(id);
+const el={};
+['capVal','capClass','ownVal','eraChip','computeVal','computeRate','dataVal','dataRate','cashVal','cashRate',
+'hypeVal','hypeRate','qualVal','researchVal','researchMini','lossVal','stepVal','targetVal','runFill','runStatus',
+'plotHint','primaryBtn','primarySub','secondaryRow','internalBody','deployedBody','internalSlot','deployedSlot',
+'deployBtn','opsCard','splitSlider','trainPct','priceSlider','priceLbl','opDemand','opCap','opCost','opMargin',
+'capitalCard','capitalBody','gensList','upgradesList','upgradesCard','fundCard','valuationVal','stakeVal','roundName',
+'raiseAmt','raiseSlider','raiseInfo','raiseBtn','autoCard','autoList','prestigeCard','prestigeInfo','prestigeBtn',
+'teaserCard','teaserList','eventBanner','evTitle','evDesc','stabilizeWrap','stabilizeBtn','stabTime','allocWrap',
+'allocSlider','allocPct','chinHint','comboHint','plot','modelsCard'].forEach(k=>el[k]=$(k));
+
+/* ---------------- pops / toast / shake ---------------- */
+function pop(text,x,y,cls){
+  if(x==null){ x=window.innerWidth/2; y=window.innerHeight*0.4; }
+  const d=document.createElement('div'); d.className='pop '+(cls||''); d.textContent=text;
+  d.style.left=x+'px'; d.style.top=y+'px';
+  $('pops').appendChild(d);
+  setTimeout(()=>d.remove(), 760);
+}
+let toastT=0;
+function toast(msg,kind){
+  const d=document.createElement('div'); d.className='toast '+(kind||''); d.textContent=msg;
+  $('toasts').appendChild(d);
+  setTimeout(()=>d.remove(), 2000);
+}
+function shake(){
+  if(S.settings.reducedMotion) return;
+  const s=$('shake'); s.style.animation='none'; void s.offsetWidth;
+  s.animate([{transform:'translate(0,0)'},{transform:'translate(-4px,2px)'},{transform:'translate(3px,-3px)'},{transform:'translate(-2px,1px)'},{transform:'translate(0,0)'}],{duration:280});
+}
+function showBanner(e){ const b=el.eventBanner; b.className='show '+(e.type==='good'?'good':e.type==='bad'?'bad':'info'); el.evTitle.textContent=e.title; el.evDesc.textContent=e.desc; }
+function hideBanner(){ el.eventBanner.className=''; }
+function vibrate(p){ if(S.settings.reducedMotion)return; try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} }
+
+/* ---------------- audio (lazy WebAudio; muteable) ---------------- */
+let AC=null;
+function audioInit(){ if(AC)return; try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+function blip(freq,dur,type,gain,slideTo){
+  if(!AC||S.settings.muted)return;
+  try{
+    const o=AC.createOscillator(), g=AC.createGain(); o.type=type||'sine'; o.frequency.value=freq;
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, AC.currentTime+dur);
+    g.gain.value=0.0001; g.gain.exponentialRampToValueAtTime(gain||0.06, AC.currentTime+0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+dur);
+    o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+dur+0.02);
+  }catch(e){}
+}
+function sfx(kind){
+  if(!AC||S.settings.muted)return;
+  switch(kind){
+    case 'tap':   blip(180+Math.random()*30,0.05,'square',0.025); break;
+    case 'crit':  blip(660,0.14,'triangle',0.07,1100); break;
+    case 'born':  blip(523,0.12,'triangle',0.07); setTimeout(()=>blip(659,0.12,'triangle',0.07),80); setTimeout(()=>blip(784,0.22,'triangle',0.08),160); break;
+    case 'deploy':blip(392,0.16,'sine',0.07,587); break;
+    case 'buy':   blip(330,0.06,'square',0.04); break;
+    case 'eval':  blip(880,0.08,'sine',0.05); break;
+    case 'era':   blip(440,0.16,'sawtooth',0.06,880); setTimeout(()=>blip(660,0.2,'sawtooth',0.06,990),120); break;
+    case 'alarm': blip(160,0.18,'sawtooth',0.07,120); break;
+    case 'win':   [523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f,0.3,'triangle',0.09),i*140)); break;
+  }
+}
+
+/* ---------------- canvas loss plot ---------------- */
+const ctx=el.plot.getContext('2d');
+let plotW=0,plotH=0,dpr=1;
+function resizePlot(){
+  dpr=Math.min(2,window.devicePixelRatio||1);
+  const rect=el.plot.getBoundingClientRect();
+  plotW=rect.width; plotH=rect.height;
+  el.plot.width=plotW*dpr; el.plot.height=plotH*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function lossDisplay(p){ return 4.2*Math.exp(-3.1*p)+0.25; }
+function drawPlot(){
+  if(!plotW) resizePlot();
+  ctx.clearRect(0,0,plotW,plotH);
+  const padL=30,padB=18,padT=10,padR=8;
+  const w=plotW-padL-padR, h=plotH-padT-padB;
+  // grid
+  ctx.strokeStyle='#eef1f6'; ctx.lineWidth=1; ctx.fillStyle='#aab2c4'; ctx.font='9px '+'monospace';
+  const maxLoss=4.6;
+  for(let i=0;i<=4;i++){ const y=padT+h*i/4; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+w,y); ctx.stroke();
+    const lv=(maxLoss*(1-i/4)).toFixed(1); ctx.fillText(lv,4,y+3); }
+  for(let i=0;i<=4;i++){ const x=padL+w*i/4; ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+h); ctx.stroke(); }
+  // target line
+  const targetY=padT+h*(1-(0.25/maxLoss));
+  ctx.strokeStyle='#d4dae6'; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(padL,targetY); ctx.lineTo(padL+w,targetY); ctx.stroke(); ctx.setLineDash([]);
+  // curve
+  const prog = S.run?S.run.progress:(S.flags.firstRunDone?1:0);
+  const diverge = S.run&&S.run.instability;
+  ctx.strokeStyle=diverge?'#e8423f':'#3b6cff'; ctx.lineWidth=2.4; ctx.beginPath();
+  const steps=Math.max(2,Math.floor(prog*120)+2);
+  for(let i=0;i<=steps;i++){
+    const p=prog*i/steps;
+    let lv=lossDisplay(p);
+    if(diverge) lv+=Math.sin(i*0.9)*0.18*(1-p);
+    const x=padL+w*p; const y=padT+h*(1-Math.min(1,lv/maxLoss));
+    if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  // head dot
+  if(S.run){ const lv=lossDisplay(prog); const x=padL+w*prog; const y=padT+h*(1-Math.min(1,lv/maxLoss));
+    ctx.fillStyle=diverge?'#e8423f':'#3b6cff'; ctx.beginPath(); ctx.arc(x,y,3.5,0,7); ctx.fill(); }
+}
+
+/* ---------------- render ---------------- */
+let lastStructHash='';
+function structHash(){
+  // re-render lists only when membership changes
+  let h=S.era+'|'+Object.keys(S.gens).map(k=>k+S.gens[k]).join(',')+'|'+Object.keys(S.upgrades).join(',')
+    +'|'+S.models.map(m=>m.id+(m.deployed?'D':'')).join(',')+'|'+S.flags.deployedOnce+S.flags.firstRunDone
+    +'|'+JSON.stringify(S.autos)+'|'+S.capital.prepay+'|'+(canPrestige()?1:0);
+  return h;
+}
+function render(){
+  // crown
+  const f=frontierModel();
+  el.capVal.textContent=fmt(S.bestCapability);
+  el.capClass.textContent = f?f.cls:'no model yet';
+  el.ownVal.textContent=(S.ownership*100).toFixed(S.ownership<0.1?2:1)+'%';
+  el.eraChip.textContent='Era '+S.era+' · '+ERAS[S.era];
+  // ticker
+  const r=rates();
+  el.computeVal.textContent=fmt(S.compute);
+  el.computeRate.textContent='+'+fmt(r.compute)+'/s';
+  el.dataVal.textContent=fmt(S.data);
+  if(r.data>0){ el.dataRate.textContent='+'+fmt(r.data)+'/s'; el.dataRate.className='rate'; }
+  else { el.dataRate.textContent='manual'; el.dataRate.className='rate dim'; }
+  el.cashVal.textContent=fmtCash(S.cash);
+  const cps=passiveCashPerSec()-burnPerSec();
+  if(S.flags.deployedOnce && Math.abs(cps)>0.01){ el.cashRate.textContent=(cps>=0?'+':'')+fmtCash(cps)+'/s'; el.cashRate.className='rate'+(cps<0?' dim':''); }
+  else { el.cashRate.textContent='tap to serve'; el.cashRate.className='rate dim'; }
+  el.hypeVal.textContent=fmt(S.hype);
+  el.qualVal.textContent=fmt(S.quality);
+  el.researchVal.textContent=fmt(S.research);
+  el.researchMini.style.display = (S.research>0||S.totalResearch>0||S.era>=2)?'flex':'none';
+
+  // plot meta
+  const prog=S.run?S.run.progress:0;
+  el.lossVal.textContent = S.run?lossDisplay(prog).toFixed(2):(S.flags.firstRunDone?'0.25':'—');
+  el.stepVal.textContent = S.run?Math.floor(prog*100):0;
+  el.targetVal.textContent='0.25';
+  el.runFill.style.width=(prog*100)+'%';
+  if(S.run){ el.runStatus.textContent=(S.run.scripted?'First run — guaranteed success. ':'')+'Progress '+(prog*100).toFixed(0)+'%'; el.plotHint.textContent='tap to descend the loss curve'; }
+  else if(canStartRun()){ el.runStatus.textContent='Ready to train '+className(S.modelIndex); el.plotHint.textContent='start a run below'; }
+  else { const c=runCost(S.modelIndex); el.runStatus.textContent='Next run needs '+fmt(c.data)+' data + '+fmt(c.compute)+' compute'; el.plotHint.textContent='gather resources'; }
+
+  // stabilize
+  if(S.run&&S.run.instability){ el.stabilizeWrap.className='show'; el.stabTime.textContent=Math.max(0,S.run.instability.timeLeft).toFixed(1)+'s'; }
+  else el.stabilizeWrap.className='';
+
+  // combo hint
+  if(R.combo>1.05){ el.comboHint.textContent='combo ×'+R.combo.toFixed(1); el.comboHint.style.color=R.combo>2.5?'#f2a900':'#737d92'; }
+  else el.comboHint.textContent='';
+
+  // primary button morph
+  updatePrimary();
+
+  // ops
+  if(S.era>=3){ el.opsCard.classList.remove('hidden'); renderOps(); } else el.opsCard.classList.add('hidden');
+  // fundraise
+  if(S.era>=2){ el.fundCard.classList.remove('hidden'); renderFund(); } else el.fundCard.classList.add('hidden');
+  // capital
+  if(S.era>=4){ el.capitalCard.classList.remove('hidden'); } else el.capitalCard.classList.add('hidden');
+  // auto
+  if(S.era>=6){ el.autoCard.classList.remove('hidden'); } else el.autoCard.classList.add('hidden');
+  // prestige
+  if(canPrestige()){ el.prestigeCard.classList.remove('hidden'); el.prestigeInfo.textContent='Banking now grants +'+researchGain()+' research (permanent ×'+(1+(S.research+researchGain())*0.03).toFixed(2)+' multipliers). Resets the lab.'; }
+  else el.prestigeCard.classList.add('hidden');
+
+  // allocation minigame
+  if(S.era>=2 && S.run){ el.allocWrap.classList.remove('hidden'); el.chinHint.textContent=S.upgrades.chinchilla?'(optimum ≈ 62%)':''; }
+  else el.allocWrap.classList.add('hidden');
+
+  // victory
+  if(S.flags.won){ const vc=$('victoryCard'); vc.classList.remove('hidden');
+    $('victoryStats').innerHTML='Final capability '+fmt(S.bestCapability)+' · ownership '+(S.ownership*100).toFixed(1)+'% · stake '+fmtCash(S.ownership*valuation()); }
+
+  // structural lists
+  const h=structHash();
+  if(h!==lastStructHash){ lastStructHash=h; renderGens(); renderUpgrades(); renderModels(); renderCapital(); renderAutos(); renderTeaser(); renderSecondary(); }
+  updateBuyAffordability();
+}
+
+function updatePrimary(){
+  const b=el.primaryBtn;
+  if(S.run){ b.innerHTML='Run gradient step<span class="sub" id="primarySub">−loss · ×'+R.combo.toFixed(1)+' combo</span>'; b.dataset.act='step'; b.className='btn hero-tap'; }
+  else if(canStartRun()){ const c=runCost(S.modelIndex); b.innerHTML='Start training run<span class="sub">'+fmt(c.data)+' data · '+fmt(c.compute)+' compute</span>'; b.dataset.act='start'; b.className='btn hero-tap teal'; }
+  else if(S.autos.autoScrape){ b.innerHTML='Auto-ingesting data…<span class="sub">automated</span>'; b.dataset.act=''; b.className='btn hero-tap ghost'; b.disabled=true; return; }
+  else { b.innerHTML='Scrape data<span class="sub">+'+fmt(C.SCRAPE_BASE*R.combo)+' data</span>'; b.dataset.act='scrape'; b.className='btn hero-tap'; }
+  b.disabled=false;
+}
+
+function renderSecondary(){
+  const row=el.secondaryRow; row.innerHTML='';
+  const btns=[];
+  // clean (after some data)
+  if((S.data>=20||S.flags.cleanedOnce) && !S.autos.autoScrape){ btns.push({k:'clean',label:'Clean data',sub:'+'+C.CLEAN_YIELD+' quality',cls:'sec'}); }
+  if(S.flags.deployedOnce){
+    if(!S.autos.autoServe) btns.push({k:'serve',label:'Serve requests',sub:'+cash',cls:'teal'});
+    if(!S.autos.autoEvalT) btns.push({k:'eval',label:'Run eval',sub:'+hype',cls:'pink'});
+  }
+  row.className = btns.length>2?'btnrow three':(btns.length?'btnrow two':'btnrow');
+  for(const b of btns){
+    const e=document.createElement('button'); e.className='btn '+b.cls; e.dataset.act=b.k;
+    e.innerHTML=b.label+'<span class="sub">'+b.sub+'</span>';
+    row.appendChild(e);
+  }
+}
+
+function renderGens(){
+  const list=el.gensList; list.innerHTML='';
+  let any=false;
+  for(const g of GENS){
+    if(!g.unlock()) continue; any=true;
+    const item=document.createElement('div'); item.className='item';
+    const cnt=genCount(g.key); const maxed=g.max&&cnt>=g.max;
+    item.innerHTML='<div class="info"><div class="nm">'+g.name+'</div><div class="ds">'+g.ds+' · <span class="eff">'+g.eff+'</span></div></div>'
+      +'<div class="own">×'+cnt+'</div>';
+    const btn=document.createElement('button'); btn.className='buybtn'; btn.dataset.gen=g.key;
+    if(maxed){ btn.textContent='MAX'; btn.disabled=true; }
+    else { btn.innerHTML='Buy<span class="c">'+fmtCash(genCost(g.key))+'</span>'; }
+    item.appendChild(btn); list.appendChild(item);
+  }
+  if(!any) list.innerHTML='<div class="empty-note">scrape some data to begin</div>';
+}
+function renderUpgrades(){
+  const list=el.upgradesList; list.innerHTML=''; let any=false;
+  for(const u of UPGRADES){
+    if(u.era>S.era) continue; any=true;
+    const owned=S.upgrades[u.key];
+    const item=document.createElement('div'); item.className='item';
+    item.innerHTML='<div class="info"><div class="nm">'+u.name+(owned?' ✓':'')+'</div><div class="ds eff">'+u.ds+'</div></div>';
+    const btn=document.createElement('button'); btn.className='buybtn'; btn.dataset.up=u.key;
+    if(owned){ btn.textContent='Owned'; btn.disabled=true; }
+    else btn.innerHTML='Buy<span class="c">'+fmtCash(u.cost)+'</span>';
+    item.appendChild(btn); list.appendChild(item);
+  }
+  el.upgradesCard.style.display=any?'block':'none';
+}
+function renderModels(){
+  const f=frontierModel();
+  const internal=S.models.filter(m=>!m.deployed).sort((a,b)=>b.capability-a.capability)[0];
+  const dep=S.models.filter(m=>m.deployed).sort((a,b)=>b.capability-a.capability)[0];
+  el.internalBody.innerHTML = internal?'<div class="mn">'+internal.name+'</div><div class="mc">cap '+fmt(internal.capability)+'</div>':'<div class="empty-note">no model yet</div>';
+  el.deployedBody.innerHTML = dep?'<div class="mn">'+dep.name+'</div><div class="mc">cap '+fmt(dep.capability)+'</div>':'<div class="empty-note">nothing deployed</div>';
+  el.internalSlot.className='slot'+(internal?' filled':'');
+  el.deployedSlot.className='slot'+(dep?' filled deployed':'');
+  const canDeploy=S.models.some(m=>!m.deployed && m.capability>deployedCap());
+  el.deployBtn.disabled=!canDeploy;
+  el.deployBtn.textContent = S.flags.deployedOnce?'Deploy newest model':'Deploy model (+'+C.DEPLOY_HYPE+' hype, enables serving)';
+}
+function renderOps(){
+  const e=opsEconomics();
+  el.trainPct.textContent=Math.round(S.ops.trainFraction*100);
+  el.splitSlider.value=Math.round(S.ops.trainFraction*100);
+  el.priceLbl.textContent='$'+S.ops.price.toFixed(2);
+  el.priceSlider.value=Math.round(S.ops.price*100);
+  el.opDemand.textContent=fmt(e.demand);
+  el.opCap.textContent=fmt(e.serveCap);
+  el.opCost.textContent='$'+e.costPerToken.toFixed(2);
+  const m=e.cashPerSec-burnPerSec();
+  el.opMargin.textContent=(m>=0?'+':'')+fmtCash(m)+'/s';
+  el.opMargin.className='v num '+(m>=0?'pos':'neg');
+}
+function renderFund(){
+  const val=valuation();
+  el.valuationVal.textContent=fmtCash(val);
+  el.stakeVal.textContent=fmtCash(S.ownership*val);
+  el.roundName.textContent=roundLabel()+(S.era>=5?' (optional)':'');
+  const pct=el.raiseSlider.value/100;
+  const amount=val*0.6*pct;
+  el.raiseAmt.textContent=fmtCash(amount);
+  const dil=amount>0?amount/(val+amount):0;
+  el.raiseInfo.textContent=amount>0?('Dilutes '+(dil*100).toFixed(1)+'% → ownership '+((S.ownership*(1-dil))*100).toFixed(1)+'%'):'Slide to choose how much to raise';
+}
+function renderCapital(){
+  const b=el.capitalBody; b.innerHTML='';
+  for(const c of CAPITAL){
+    const item=document.createElement('div'); item.className='item';
+    const owned=c.key==='prepay'&&S.capital.prepay;
+    item.innerHTML='<div class="info"><div class="nm">'+c.name+(owned?' ✓':'')+'</div><div class="ds">'+c.ds+'</div></div>';
+    const btn=document.createElement('button'); btn.className='buybtn'; btn.dataset.cap=c.key;
+    btn.textContent=owned?'Active':'Take';
+    if(owned)btn.disabled=true;
+    item.appendChild(btn); b.appendChild(item);
+  }
+  if(S.capital.debt>0||S.capital.credits>0){ const d=document.createElement('div'); d.className='empty-note'; d.textContent='Debt burn: '+fmtCash(S.capital.debtBurn)+'/s'; b.appendChild(d); }
+}
+function renderAutos(){
+  const list=el.autoList; list.innerHTML='';
+  for(const a of AUTOS){
+    const t=document.createElement('div'); t.className='toggle';
+    const on=!!S.autos[a.key];
+    t.innerHTML='<span class="nm">'+a.name+'</span><div class="switch'+(on?' on':'')+'" data-auto="'+a.key+'"><i></i></div>';
+    list.appendChild(t);
+  }
+}
+function renderTeaser(){
+  const list=el.teaserList; list.innerHTML='';
+  const teasers=[
+    {e:1,t:'Era 1 — Deploy GPT-2, serve for cash, dodge instability'},
+    {e:2,t:'Era 2 — Allocation minigame · raise a Seed round'},
+    {e:3,t:'Era 3 — Operations: split compute between train & serve'},
+    {e:4,t:'Era 4 — Capital structure · pricing pressure · burn'},
+    {e:5,t:'Era 5 — Self-funding · synthetic-data flywheel'},
+    {e:6,t:'Era 6 — AGI · automate every click · prestige into RSI'},
+    {e:7,t:'Era 7 — Dyson swarm, von Neumann probes, the Lightcone'},
+  ];
+  let shown=0;
+  for(const x of teasers){ if(x.e>S.era && shown<3){ const d=document.createElement('div'); d.className='teaser'; d.innerHTML='<span class="ic"></span><span>'+x.t+'</span>'; list.appendChild(d); shown++; } }
+  if(S.era>=7){ const d=document.createElement('div'); d.className='teaser'; d.innerHTML='<span class="ic" style="background:#e64980"></span><span>Stars colonised: '+Math.floor(S.stars)+' / '+STARS_TO_WIN+(S.flags.won?' — VICTORY 🌌':'')+'</span>'; list.appendChild(d); }
+  el.teaserCard.style.display = (shown>0||S.era>=7)?'block':'none';
+}
+function updateBuyAffordability(){
+  document.querySelectorAll('[data-gen]').forEach(b=>{ const k=b.dataset.gen; const g=GENS.find(x=>x.key===k); if(g.max&&genCount(k)>=g.max)return; b.disabled=S.cash<genCost(k); });
+  document.querySelectorAll('[data-up]').forEach(b=>{ const k=b.dataset.up; if(S.upgrades[k])return; b.disabled=S.cash<UPGRADES.find(x=>x.key===k).cost; });
+}
+
+/* ---------------- input wiring ---------------- */
+function tapPos(ev){ const t=ev.changedTouches?ev.changedTouches[0]:ev; return {x:t.clientX, y:t.clientY}; }
+// init audio on the first user gesture (mobile autoplay policy)
+function firstGesture(){ audioInit(); if(AC&&AC.state==='suspended'){ try{AC.resume();}catch(e){} } }
+window.addEventListener('pointerdown', firstGesture, {once:true});
+// primary hero verb — pointerdown for zero-latency tapping; rapid verbs skip sync render (rAF loop renders @10Hz)
+el.primaryBtn.addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  const p=tapPos(e); const act=el.primaryBtn.dataset.act;
+  if(act==='step') actStep(p.x,p.y);
+  else if(act==='start'){ actStartRun(); render(); }
+  else if(act==='scrape') actScrape(p.x,p.y);
+});
+// secondary (delegated) — pointerdown
+el.secondaryRow.addEventListener('pointerdown', e=>{
+  const btn=e.target.closest('button[data-act]'); if(!btn)return;
+  e.preventDefault();
+  const p=tapPos(e); const a=btn.dataset.act;
+  if(a==='clean')actClean(p.x,p.y); else if(a==='serve')actServe(p.x,p.y); else if(a==='eval')actEval(p.x,p.y);
+});
+el.stabilizeBtn.addEventListener('pointerdown', e=>{ e.preventDefault(); actStabilize(); render(); });
+el.deployBtn.addEventListener('click', ()=>{ actDeploy(); render(); });
+el.gensList.addEventListener('click', e=>{ const b=e.target.closest('[data-gen]'); if(b){ buyGen(b.dataset.gen); render(); } });
+el.upgradesList.addEventListener('click', e=>{ const b=e.target.closest('[data-up]'); if(b){ buyUpgrade(b.dataset.up); render(); } });
+el.capitalBody.addEventListener('click', e=>{ const b=e.target.closest('[data-cap]'); if(b){ actCapital(b.dataset.cap); render(); } });
+el.autoList.addEventListener('click', e=>{ const sw=e.target.closest('[data-auto]'); if(sw){ const k=sw.dataset.auto; S.autos[k]=!S.autos[k]; render(); } });
+el.splitSlider.addEventListener('input', e=>{ S.ops.trainFraction=e.target.value/100; renderOps(); });
+el.priceSlider.addEventListener('input', e=>{ S.ops.price=e.target.value/100; renderOps(); });
+el.allocSlider.addEventListener('input', e=>{ if(S.run){ S.run.alloc=e.target.value/100; el.allocPct.textContent=e.target.value+'%'; } });
+el.raiseSlider.addEventListener('input', ()=>renderFund());
+el.raiseBtn.addEventListener('click', ()=>{ const val=valuation(); const amount=val*0.6*(el.raiseSlider.value/100); if(amount>0){ actRaise(amount); sfx('deploy'); } render(); });
+el.prestigeBtn.addEventListener('click', ()=>{ if(confirm('Start a new generation? This resets the lab but banks +'+researchGain()+' research permanently.')){ actPrestige(); save(); render(); } });
+
+/* settings */
+function openModal(id){ $(id).classList.add('show'); }
+function closeModal(id){ $(id).classList.remove('show'); }
+$('openSettings').addEventListener('click', ()=>{ syncSwitches(); openModal('settingsModal'); });
+$('closeSettings').addEventListener('click', ()=>closeModal('settingsModal'));
+$('aboutBtn').addEventListener('click', ()=>{ showAbout(); });
+$('closeAbout').addEventListener('click', ()=>{ closeModal('aboutModal'); S.flags.intro=true; save(); });
+$('rmSwitch').addEventListener('click', ()=>{ S.settings.reducedMotion=!S.settings.reducedMotion; applyReducedMotion(); syncSwitches(); });
+$('soundSwitch').addEventListener('click', ()=>{ S.settings.muted=!S.settings.muted; syncSwitches(); });
+$('wipeBtn').addEventListener('click', ()=>{ if(confirm('Erase ALL progress and restart from the garage?')){ localStorage.removeItem(SAVE_KEY); S=freshState(); R=freshRuntime(); lastStructHash=''; closeModal('settingsModal'); render(); } });
+$('exportBtn').addEventListener('click', ()=>{ const data=btoa(unescape(encodeURIComponent(JSON.stringify(S)))); prompt('Copy your save code:', data); });
+$('importBtn').addEventListener('click', ()=>{ const code=prompt('Paste save code:'); if(code){ try{ const obj=JSON.parse(decodeURIComponent(escape(atob(code.trim())))); S=migrate(obj); R=freshRuntime(); lastStructHash=''; toast('Save imported','good'); render(); }catch(err){ toast('Invalid save code','bad'); } } });
+function syncSwitches(){ $('rmSwitch').className='switch'+(S.settings.reducedMotion?' on':''); $('soundSwitch').className='switch'+(S.settings.muted?' on':''); }
+function applyReducedMotion(){ document.body.classList.toggle('reduced', S.settings.reducedMotion); }
+
+function showAbout(){
+  $('aboutTitle').textContent='Prompt Factory';
+  $('aboutBody').innerHTML='Run a frontier AI lab from a garage to the stars. <b>Tap to scrape data</b>, then start a training run and <b>tap to descend the loss curve</b> — that births your first model. Deploy it to earn cash, then buy generators that <b>automate your own jobs</b>. Scale through funding rounds while protecting your ownership. The dream run: reach AGI while still owning the lab.';
+  openModal('aboutModal');
+}
+
+/* ---------------- save / load / migrate ---------------- */
+const SAVE_KEY='promptfactory_save_v1';
+let saveT=0;
+function save(){
+  try{ S.last_saved_at=Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }catch(e){}
+}
+function migrate(obj){
+  if(!obj||typeof obj!=='object') return freshState();
+  // legacy data-quality 0-1 → points
+  if(typeof obj.quality==='number' && obj.quality<=1) obj.quality=5;
+  const base=freshState();
+  const merged=Object.assign(base, obj);
+  // deep-ish merge for nested
+  merged.flags=Object.assign({}, base.flags, obj.flags||{});
+  merged.ops=Object.assign({}, base.ops, obj.ops||{});
+  merged.capital=Object.assign({}, base.capital, obj.capital||{});
+  merged.settings=Object.assign({}, base.settings, obj.settings||{});
+  merged.gens=obj.gens||{}; merged.upgrades=obj.upgrades||{}; merged.autos=obj.autos||{};
+  merged.models=Array.isArray(obj.models)?obj.models:[];
+  merged.run=obj.run||null;
+  merged.schema_version=C.SCHEMA;
+  return merged;
+}
+function load(){
+  let raw=null;
+  try{ raw=localStorage.getItem(SAVE_KEY); }catch(e){}
+  if(!raw){ S=freshState(); R=freshRuntime(); return false; }
+  try{ S=migrate(JSON.parse(raw)); }catch(e){ S=freshState(); }
+  R=freshRuntime();
+  applyOffline();
+  return true;
+}
+function applyOffline(){
+  const now=Date.now();
+  let elapsed=(now-(S.last_saved_at||now))/1000;
+  if(elapsed<5) return;
+  elapsed=Math.min(elapsed, C.OFFLINE_CAP_S);
+  const rate=C.OFFLINE_RATE;
+  const r=rates();
+  S.compute += r.compute*elapsed*rate;
+  S.data += r.data*elapsed*rate;
+  S.quality += r.quality*elapsed*rate;
+  S.lifetimeCompute += r.compute*elapsed*rate;
+  const cps=passiveCashPerSec()-burnPerSec();
+  if(cps>0){ const g=cps*elapsed*rate; S.cash+=g; S.cumCash+=g; }
+  if(genCount('probes')>0){ S.stars=Math.min(STARS_TO_WIN, S.stars+genCount('probes')*0.4*elapsed*rate); }
+  // resolve auto-runs roughly: if optimizer owned, count completed runs
+  setTimeout(()=>{
+    const mins=Math.floor(elapsed/60);
+    if(mins>=1) toast('Welcome back — '+(mins>=60?Math.floor(mins/60)+'h':mins+'m')+' of progress applied','info');
+  }, 600);
+}
+
+/* ---------------- main loop ---------------- */
+let lastT=performance.now(); let acc=0; let renderAcc=0;
+function frame(now){
+  let dt=(now-lastT)/1000; lastT=now;
+  if(dt>0.25)dt=0.25;
+  tick(dt);
+  drawPlot();
+  renderAcc+=dt;
+  if(renderAcc>=0.1){ render(); renderAcc=0; }
+  saveT+=dt; if(saveT>=2){ save(); saveT=0; }
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- debug handle (harmless; used by headless balance tests) ---------------- */
+window.__pf = { get S(){return S;}, set S(v){S=v;}, tick, render, rates, opsEconomics, passiveCashPerSec, burnPerSec,
+  actScrape, actClean, actStartRun, actStep, actStabilize, actDeploy, actServe, actEval, actRaise, actCapital, actPrestige,
+  buyGen, buyUpgrade, canStartRun, runCost, valuation, researchGain, canPrestige, genCost, genCount, frontierModel,
+  deployedCap, baseCeiling, GENS, UPGRADES, C, freshState, freshRuntime, get R(){return R;} };
+
+/* ---------------- boot ---------------- */
+window.addEventListener('resize', resizePlot);
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) save(); });
+window.addEventListener('pagehide', save);
+
+function boot(){
+  const existed=load();
+  // default reduced-motion to the OS preference for new players
+  if(!existed && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){ S.settings.reducedMotion=true; }
+  applyReducedMotion();
+  resizePlot();
+  lastStructHash=''; render();
+  if(!S.flags.intro){ showAbout(); }
+  requestAnimationFrame(frame);
+}
+boot();
+</script>
+</body>
+</html>
