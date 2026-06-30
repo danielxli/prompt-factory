@@ -6,14 +6,19 @@ A mobile-first incremental/idle game built from `prompt-factory-product-spec.md`
 
 ## How to play
 
-1. **Tap "Scrape data"** to gather data, then **Start a training run**.
-2. **Tap "Run gradient step"** to descend the loss curve — that births your first model (GPT-1). Watch for **crits** (gold) and build a **combo** by tapping fast.
-3. **Deploy** the model to earn cash by **Serving requests**.
-4. Spend cash on **generators** that do your jobs for you (web scraper → curation → auto-optimizer). Once the auto-optimizer is online, runs train themselves — you've automated your first job.
-5. Scale through 7 eras: deploy & instability → allocation minigame & fundraising → the **Operations** train/serve compute split → capital structure & pricing → self-funding → **AGI** → the **Dyson swarm & galactic expansion**.
-6. **Win** by colonising the galaxy (the Lightcone). The dream run: reach AGI while keeping ≥51% ownership by self-funding instead of diluting away.
+The **mission bar** under the crown always tells you the next goal. Broadly:
 
-Progress saves automatically (localStorage) and accrues while you're away (offline progress, capped at 12h).
+1. **Tap "Scrape data"** to gather data, then **Start a training run**.
+2. **Tap "Run gradient step"** to descend the loss curve — that births GPT-1. Watch for **crits** (gold) and build a **combo** by tapping fast.
+3. **Deploy** the model to earn cash by **Serving requests**.
+4. Spend cash on **generators** that do your jobs for you (web scraper → curation → auto-optimizer). Use the **×1 / ×10 / Max** toggle to buy in bulk. Once the auto-optimizer is online, runs train themselves — you've automated your first job.
+5. Scale through 7 eras, each introducing a mechanic with a short story card: deploy & instability → allocation minigame & fundraising → the **Operations** train/serve compute split → capital structure & pricing → self-funding → **AGI** → the **Dyson swarm & galactic expansion**.
+
+### The prestige loop (the spine)
+
+Around the Frontier era you hit a **wall**: the next era needs **Research**, which you only get by starting a **Next Generation** — a reset that banks Research for a permanent ×multiplier to all output and capability. Each generation is a faster replay that breaks one era further. It takes several generations to reach **AGI**, and a few more to colonise the galaxy (the **Lightcone** = victory). Grinding the wall a little longer before resetting earns more Research — that "when do I reset?" call is the strategic heart of the game.
+
+The **Lab log** records your whole story; progress saves automatically and accrues while you're away (offline, capped 12h).
 
 ## Play on mobile
 

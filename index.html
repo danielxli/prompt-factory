@@ -49,6 +49,25 @@ body{
 .crown .own .lbl{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
 .era-chip{display:inline-block; font-size:10px; font-weight:700; color:#fff; background:var(--signal); padding:2px 7px; border-radius:20px; letter-spacing:.03em; margin-top:2px;}
 
+/* ---- mission bar ---- */
+#missionBar{margin-top:12px; background:linear-gradient(180deg,#fff,#f7f9fc); border:1px solid var(--line); border-radius:12px; padding:9px 12px;}
+#missionBar .mtop{display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:13px; font-weight:600;}
+#missionBar #missionText{color:var(--ink);}
+#missionBar #missionPct{font-size:12px; color:var(--muted);}
+.mbar{height:6px; background:var(--line); border-radius:5px; margin-top:7px; overflow:hidden;}
+.mbar > i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--signal),#6f8cff); transition:width .25s;}
+#missionBar.walled{background:linear-gradient(180deg,#fff,#fbf3fb); border-color:#e9cde6;}
+#missionBar.walled .mbar > i{background:linear-gradient(90deg,#b14ad8,#e64980);}
+
+/* ---- buy mode + lab log ---- */
+.buymode{display:flex; gap:4px;}
+.buymode button{appearance:none; border:1px solid var(--line2); background:#f4f6fa; color:var(--muted); font-family:var(--mono); font-size:11px; font-weight:700; padding:3px 8px; border-radius:7px; cursor:pointer;}
+.buymode button.on{background:var(--signal); color:#fff; border-color:var(--signal);}
+#labLog{font-family:var(--mono); font-size:11px; color:var(--muted); max-height:160px; overflow-y:auto; line-height:1.7;}
+#labLog .e{padding:2px 0; border-top:1px solid var(--line);}
+#labLog .e:first-child{border-top:none;}
+.logbtn{appearance:none; border:none; background:none; color:var(--signal); font-size:11px; font-weight:600; cursor:pointer; text-transform:none; letter-spacing:0;}
+
 /* ---- resource ticker ---- */
 .ticker{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
 .res{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 10px;}
@@ -209,6 +228,11 @@ input[type=range]{width:100%; margin-top:6px; accent-color:var(--signal);}
     </div>
   </div>
 
+  <div id="missionBar">
+    <div class="mtop"><span id="missionText">Scrape data and train your first model.</span><span class="num" id="missionPct"></span></div>
+    <div class="mbar"><i id="missionFill"></i></div>
+  </div>
+
   <div class="ticker">
     <div class="res"><div class="top"><span class="name">Compute</span><span class="rate" id="computeRate">+0.6/s</span></div><div class="amt num" id="computeVal">0</div></div>
     <div class="res"><div class="top"><span class="name">Data</span><span class="rate dim" id="dataRate">manual</span></div><div class="amt num" id="dataVal">0</div></div>
@@ -288,7 +312,7 @@ input[type=range]{width:100%; margin-top:6px; accent-color:var(--signal);}
 
   <!-- generators -->
   <div class="card">
-    <h2>Automate your work <span class="hint">they do your jobs</span></h2>
+    <h2>Automate your work <span class="buymode" id="buyMode"><button data-buy="1" class="on">×1</button><button data-buy="10">×10</button><button data-buy="max">Max</button></span></h2>
     <div id="gensList"></div>
   </div>
 
@@ -332,6 +356,12 @@ input[type=range]{width:100%; margin-top:6px; accent-color:var(--signal);}
     <div id="teaserList"></div>
   </div>
 
+  <!-- lab log -->
+  <div class="card" id="logCard">
+    <h2>Lab log <button class="logbtn" id="logToggle">show</button></h2>
+    <div id="labLog" class="hidden"></div>
+  </div>
+
   <div class="footer">
     Prompt Factory — build the lab that builds the future.<br>
     <button class="linkbtn" id="openSettings">Settings</button> · <button class="linkbtn" id="aboutBtn">About</button>
@@ -355,6 +385,17 @@ input[type=range]{width:100%; margin-top:6px; accent-color:var(--signal);}
     <button class="btn ghost" id="importBtn">Import save</button>
     <button class="btn red" id="wipeBtn">Erase everything &amp; restart</button>
     <button class="btn sec" id="closeSettings">Close</button>
+  </div>
+</div>
+
+<!-- era story modal -->
+<div class="modal-bg" id="eraModal">
+  <div class="modal">
+    <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--signal);font-weight:700;" id="eraModalChip">New era</div>
+    <h3 id="eraModalTitle"></h3>
+    <p id="eraModalWhat" style="color:var(--ink);font-weight:600;margin:8px 0 4px;"></p>
+    <p id="eraModalDo"></p>
+    <button class="btn" id="eraModalBtn">Continue</button>
   </div>
 </div>
 
@@ -387,9 +428,9 @@ const C = {
   DEPLOY_HYPE: 22, EVAL_HYPE: 10, EVAL_CD: 6, HYPE_DECAY: 0.015,
   GROWTH: 1.13, INSTAB_WINDOW: 3,
   OFFLINE_RATE: 0.5, OFFLINE_CAP_S: 12*3600,
-  RESEARCH_K: 10, RESEARCH_THRESH: 5000,
+  RESEARCH_K: 5, RESEARCH_THRESH: 1,
   ALLOC_P: 1.6,
-  SCHEMA: 3,
+  SCHEMA: 4,
 };
 const CLASSES = ['GPT-1','GPT-2','GPT-3','GPT-4 class','GPT-5 class','Superhuman-narrow','AGI','ASI','Transcendent intelligence'];
 const ERAS = ['Garage','Seed Lab','Scaleup','Frontier','Industrial','Sovereign','AGI','The Lightcone'];
@@ -401,6 +442,9 @@ const _ceil=[8]; function baseCeiling(n){ while(_ceil.length<=n){ _ceil.push(_ce
 function runCost(idx){ return { data: 15*Math.pow(1.8,idx), compute: 12*Math.pow(2.15,idx) }; }
 /* capability needed to enter each era (≈10× per era) */
 const ERA_TH=[0, 8, 80, 800, 8000, 80000, 800000, 8000000];
+/* RESEARCH needed to enter each era — banked only by prestige, so the late game REQUIRES Next Generations.
+   Eras 0-3 are reachable in your first generation; Era 4+ is the layered prestige spine. */
+const ERA_RESEARCH=[0, 0, 0, 0, 40, 400, 3000, 20000];
 
 /* ---------------- generators ---------------- */
 /* effect handled in rates()/applyGen; here: metadata + cost */
@@ -460,7 +504,9 @@ function freshState(){
     run:null,
     gens:{}, upgrades:{},
     era:0,
-    flags:{ cleanedOnce:false, deployedOnce:false, firstRunDone:false, intro:false, won:false },
+    flags:{ cleanedOnce:false, deployedOnce:false, firstRunDone:false, intro:false, won:false, maxEraSeen:0 },
+    log:[],
+    bestEverCapability:0, generation:1,
     ops:{ trainFraction:0.5, price:1.0 },
     capital:{ debt:0, credits:0, prepay:false, debtBurn:0 },
     autos:{},
@@ -470,10 +516,29 @@ function freshState(){
     bestStake:0,
   };
 }
-function freshRuntime(){ return { combo:1, lastTap:0, lastLoss:null, plotPath:[], shakeUntil:0, dirty:true }; }
+function freshRuntime(){ return { combo:1, lastTap:0, lastLoss:null, plotPath:[], shakeUntil:0, dirty:true, buyMode:'1', logDirty:true }; }
+/* bulk-buy math (closed form). returns {qty, cost} buyable now for a generator key under the current buy mode */
+function genBulk(k){
+  const g=GENS.find(x=>x.key===k); const n=genCount(k); const rate=g.growth;
+  let want = R.buyMode==='1'?1 : R.buyMode==='10'?10 : 1e9;
+  if(g.max) want=Math.min(want, g.max-n);
+  if(want<=0) return {qty:0, cost:Infinity};
+  const unit=g.base*Math.pow(rate,n);
+  // max affordable with current cash
+  const maxAff = Math.floor(Math.log( S.cash*(rate-1)/unit + 1 ) / Math.log(rate));
+  let qty = (R.buyMode==='max') ? Math.max(0,maxAff) : want;
+  if(g.max) qty=Math.min(qty, g.max-n);
+  if(R.buyMode!=='max') { // for ×1/×10 show the full cost even if unaffordable (button disables)
+    const cost=unit*(Math.pow(rate,qty)-1)/(rate-1);
+    return {qty, cost:Math.ceil(cost)};
+  }
+  if(qty<=0) return {qty:0, cost:Math.ceil(unit)}; // can't afford even 1 → show next-unit cost
+  const cost=unit*(Math.pow(rate,qty)-1)/(rate-1);
+  return {qty, cost:Math.ceil(cost)};
+}
 
 /* ---------------- derived / selectors ---------------- */
-function researchMult(){ return 1 + S.research*0.03; }
+function researchMult(){ return 1 + S.research*0.04; }   // each research point = +4% to all production AND capability
 function computeMult(){ return (S.upgrades.flashAttention?1.6:1); }
 function dataMult(){ return 1; }
 function capabilityMult(){ let m=1; if(S.upgrades.moe)m*=1.5; if(S.upgrades.testTime)m*=1.8; return m; }
@@ -591,7 +656,8 @@ function resolveRun(){
   if(S.activeEvent && S.activeEvent.capMult) capTarget*=S.activeEvent.capMult;
   let outcome='success';
   if(!S.run.scripted && S.era>=2 && eff<0.4){ outcome='plateau'; capTarget*=0.3; }
-  const m={ id:'m'+idx+'_'+Math.floor(S.lifetimeCompute), name:className(idx), index:idx, capability:capTarget, cls:className(idx), deployed:false };
+  const cls=className(S.era);   // model class tracks the era/capability tier, not raw run count
+  const m={ id:'m'+idx+'_'+Math.floor(S.lifetimeCompute), name:cls, index:idx, capability:capTarget, cls:cls, deployed:false };
   S.models.push(m);
   S.modelIndex++; S.flags.firstRunDone=true;
   S.bestCapability=Math.max(S.bestCapability, capTarget);
@@ -599,7 +665,9 @@ function resolveRun(){
   // keep only most recent + best deployed model in list to limit growth
   if(S.models.length>6) S.models=S.models.slice(-6);
   shake(); sfx('born'); vibrate([15,30,15]);
+  S.bestEverCapability=Math.max(S.bestEverCapability||0, capTarget);
   toast((outcome==='plateau'?'⚠ Plateau — undertrained: ':'✦ ')+m.name+' born — capability '+fmt(capTarget), outcome==='plateau'?'warn':'epic');
+  addLog((outcome==='plateau'?'⚠ ':'✦ ')+m.name+' trained — capability '+fmt(capTarget)+(outcome==='plateau'?' (plateaued — mis-allocated)':''));
   if(S.autos.autoDeploy) actDeploy();
   checkEra();
   R.dirty=true;
@@ -623,6 +691,7 @@ function actDeploy(){
   if(!S.flags.deployedOnce){ S.flags.deployedOnce=true; }
   S.hype+=C.DEPLOY_HYPE;
   toast('Deployed '+target.name+' — +'+C.DEPLOY_HYPE+' hype','good');
+  if(!S.log||!S.log.some(l=>l.includes('Deployed '+target.name))) addLog('▶ Deployed '+target.name+' to production — now serving requests for cash.');
   sfx('deploy'); vibrate(20);
   checkEra(); R.dirty=true;
 }
@@ -685,11 +754,11 @@ function actCapital(key){
 
 /* generators + upgrades buy */
 function buyGen(k){
-  const cost=genCost(k); const g=GENS.find(x=>x.key===k);
-  if(g.max && genCount(k)>=g.max){ return; }
-  if(S.cash<cost) return;
-  S.cash-=cost; S.gens[k]=genCount(k)+1; R.dirty=true; sfx('buy');
-  if(k==='optimizer') toast('Auto-optimizer online — runs progress on their own','good');
+  const wasZero=genCount(k)===0;
+  const b=genBulk(k);
+  if(b.qty<=0 || S.cash<b.cost) return;
+  S.cash-=b.cost; S.gens[k]=genCount(k)+b.qty; R.dirty=true; sfx('buy');
+  if(k==='optimizer' && wasZero){ toast('Auto-optimizer online — runs progress on their own','good'); addLog('⚙ Auto-optimizer online — your training now runs itself.'); }
 }
 function buyUpgrade(k){
   const u=UPGRADES.find(x=>x.key===k); if(S.upgrades[k]||S.cash<u.cost) return;
@@ -697,48 +766,61 @@ function buyUpgrade(k){
   toast(u.name+' acquired','good');
 }
 
-/* prestige */
-function researchGain(){ return Math.floor(C.RESEARCH_K*Math.sqrt(S.lifetimeCompute/C.RESEARCH_THRESH)); }
-function canPrestige(){ return S.era>=2 && researchGain()>=1; }
+/* prestige — research scales with the capability you reached (CONCAVE cube-root brake).
+   Keyed off capability (not compute) so it compounds across generations: more research → higher
+   capability next run → more research. Grinding the wall longer = a bigger payout (the timing decision). */
+function researchGain(){ return Math.floor(C.RESEARCH_K*Math.pow(S.bestCapability, 1/3)); }
+function canPrestige(){ return researchGain()>=1; }
+/* are we walled — capability is ready for the next era but we lack the Research to enter it? */
+function researchWalled(){ const n=S.era+1; return n<=7 && S.bestCapability>=ERA_TH[n] && S.research<ERA_RESEARCH[n]; }
 function actPrestige(){
   if(!canPrestige()) return;
   const g=researchGain();
   const keepResearch=S.research+g;
   const keepTotal=S.totalResearch+g;
-  const keepBest=Math.max(S.bestCapability, S.bestCapability);
+  const keepBest=Math.max(S.bestEverCapability, S.bestCapability);
   const keepStake=Math.max(S.bestStake, S.ownership*valuation());
-  const settings=S.settings;
+  const settings=S.settings, log=S.log, gen=S.generation, maxEra=S.flags.maxEraSeen, won=S.flags.won;
   S=freshState();
   S.research=keepResearch; S.totalResearch=keepTotal; S.settings=settings;
-  S.bestStake=keepStake;
+  S.bestStake=keepStake; S.bestEverCapability=keepBest; S.log=log; S.generation=gen+1;
+  S.flags.maxEraSeen=maxEra; S.flags.won=won;
   R=freshRuntime();
-  toast('New generation — +'+g+' research banked','epic');
+  addLog('★ Generation '+S.generation+' begins — banked +'+g+' research (now '+fmt(keepResearch)+', ×'+(1+keepResearch*0.04).toFixed(2)+' forever).');
+  toast('Generation '+S.generation+' — +'+g+' research banked (×'+(1+keepResearch*0.04).toFixed(2)+')','epic');
   R.dirty=true;
 }
 
 /* era progression — gated by capability thresholds (and the first deploy to leave the garage) */
 function checkEra(){
   let e=0;
-  for(let i=1;i<=7;i++){ if(S.bestCapability>=ERA_TH[i]) e=i; else break; }
+  for(let i=1;i<=7;i++){ if(S.bestCapability>=ERA_TH[i] && S.research>=ERA_RESEARCH[i]) e=i; else break; }
   if(e>=1 && !S.flags.deployedOnce) e=0;   // must deploy your first model to leave Era 0
-  if(e<S.era) e=S.era;                      // eras are monotonic
+  if(e<S.era) e=S.era;                      // eras are monotonic within a generation
   if(e!==S.era){ const prev=S.era; S.era=e; onEraChange(e,prev); }
   if(e>=7 && S.stars>=STARS_TO_WIN && !S.flags.won){ S.flags.won=true; onVictory(); }
 }
+/* per-era story: [title, what-just-happened, what-to-do-now] */
+const ERA_STORY=[
+  ['Era 0 · The Garage','You are one person with a single GPU.','Scrape data by hand, then train your first model — GPT-1 — one gradient step at a time.'],
+  ['Era 1 · Seed Lab','GPT-1 works. The world notices.','Deploy models to serve requests for cash, run evals to build hype — and watch for training instability you must Stabilize in time.'],
+  ['Era 2 · Scaleup','You have a lab, not a garage.','Now allocation matters — tune params↔data each run. Raise a seed round when hype peaks, but every raise costs ownership.'],
+  ['Era 3 · Frontier','You are training frontier models.','Open Operations: one compute pool, split between Training (capability) and Serving (cash). Price your tokens. This is the margin game.'],
+  ['Era 4 · Industrial','GPT-5-class. The capital stakes are enormous.','Take on debt or compute credits instead of diluting. Test-time-compute boosts capability but can sink your margin — a real trap.'],
+  ['Era 5 · Sovereign','Superhuman, narrow. Nations want in.','Reach sustained profit and you self-fund — raising becomes optional. The synthetic-data flywheel feeds itself.'],
+  ['Era 6 · AGI','It builds the next version of itself.','Switch on full automation — turn off every job you used to do by hand. Recursive self-improvement compounds capability.'],
+  ['Era 7 · The Lightcone','Compute hunger hits the laws of physics.','Build the Dyson swarm, launch von Neumann probes, and colonise the galaxy. Reach 100 stars to win.'],
+];
 function onEraChange(e,prev){
-  shake();
-  const lines=['', 'Era 1 — Seed Lab. Deploy, serve, and watch for instability.',
-    'Era 2 — Scaleup. Allocation matters now; fundraising opens.',
-    'Era 3 — Frontier. Operations: split compute between training & serving.',
-    'Era 4 — Industrial. Capital structure & pricing pressure; burn bites.',
-    'Era 5 — Sovereign. Profitability can self-fund you toward AGI.',
-    'Era 6 — AGI. You can now automate every click.',
-    'Era 7 — Post-AGI. Build the Dyson swarm, paint the galaxy with probes.'];
-  toast('▲ '+ERAS[e]+' reached', 'epic'); sfx('era'); vibrate([20,40,20]);
-  if(lines[e]) setTimeout(()=>toast(lines[e],'info'), 900);
+  shake(); sfx('era'); vibrate([20,40,20]);
+  addLog('▲ '+ERAS[e]+' reached.');
+  // full story card the FIRST time this era is ever seen; a quick toast on faster re-runs
+  if(e>(S.flags.maxEraSeen||0)){ S.flags.maxEraSeen=e; showEraModal(e); }
+  else toast('▲ '+ERAS[e]+' (gen '+S.generation+')','epic');
 }
 function onVictory(){
   toast('🌌 THE LIGHTCONE — the lab runs the galaxy with zero human input. You win.','epic');
+  addLog('🌌 The Lightcone — every star colonised. The lab runs the galaxy with zero human input. Victory.');
   sfx('win'); vibrate([30,60,30,60,80]);
 }
 
@@ -848,6 +930,7 @@ function tickEvents(dt){
         const e=pool[Math.floor(Math.random()*pool.length)];
         const ev={id:e.id, t:e.dur, title:e.title, desc:e.desc};
         e.apply(ev);
+        addLog((e.type==='bad'?'⚠ ':'✦ ')+e.title+' — '+e.desc);
         if(e.dur>0){ S.activeEvent=ev; showBanner(e); }
         else { toast(e.title+' — '+e.desc, e.kind); }
       }
@@ -884,7 +967,9 @@ const el={};
 'capitalCard','capitalBody','gensList','upgradesList','upgradesCard','fundCard','valuationVal','stakeVal','roundName',
 'raiseAmt','raiseSlider','raiseInfo','raiseBtn','autoCard','autoList','prestigeCard','prestigeInfo','prestigeBtn',
 'teaserCard','teaserList','eventBanner','evTitle','evDesc','stabilizeWrap','stabilizeBtn','stabTime','allocWrap',
-'allocSlider','allocPct','chinHint','comboHint','plot','modelsCard'].forEach(k=>el[k]=$(k));
+'allocSlider','allocPct','chinHint','comboHint','plot','modelsCard',
+'missionBar','missionText','missionPct','missionFill','labLog','logToggle','logCard','buyMode',
+'eraModal','eraModalTitle','eraModalWhat','eraModalDo','eraModalChip','eraModalBtn'].forEach(k=>el[k]=$(k));
 
 /* ---------------- pops / toast / shake ---------------- */
 function pop(text,x,y,cls){
@@ -899,6 +984,12 @@ function toast(msg,kind){
   const d=document.createElement('div'); d.className='toast '+(kind||''); d.textContent=msg;
   $('toasts').appendChild(d);
   setTimeout(()=>d.remove(), 2000);
+}
+function addLog(msg){
+  if(!S.log) S.log=[];
+  S.log.push(msg);
+  if(S.log.length>40) S.log=S.log.slice(-40);
+  if(R) R.logDirty=true;
 }
 function shake(){
   if(S.settings.reducedMotion) return;
@@ -980,6 +1071,54 @@ function drawPlot(){
     ctx.fillStyle=diverge?'#e8423f':'#3b6cff'; ctx.beginPath(); ctx.arc(x,y,3.5,0,7); ctx.fill(); }
 }
 
+/* ---------------- story: era modal, mission line, lab log ---------------- */
+function showEraModal(e){
+  const s=ERA_STORY[e]; if(!s) return;
+  el.eraModalChip.textContent = e===0?'Welcome':'New era unlocked';
+  el.eraModalTitle.textContent=s[0];
+  el.eraModalWhat.textContent=s[1];
+  el.eraModalDo.textContent=s[2];
+  el.eraModal.classList.add('show');
+}
+/* current objective + progress fraction, derived from state */
+function mission(){
+  if(S.flags.won) return {text:'🌌 You won. Keep building, or prestige for a higher score.', frac:1};
+  if(researchWalled()){
+    const n=S.era+1, need=ERA_RESEARCH[n], g=researchGain();
+    const ready = (S.research+g)>=need;
+    return {text: ready
+        ? '✓ Ready — a Next Generation now banks +'+fmt(g)+' research and breaks into '+ERAS[n]+'.'
+        : 'Walled: '+ERAS[n]+' needs '+fmt(need)+' research. Grind capability higher, then Next Generation.',
+      frac:(S.research+g)/need, walled:true};
+  }
+  if(S.era===0){
+    if(S.modelIndex<1){ const c=runCost(0); const have=Math.min(1,(S.data/c.data));
+      return {text: S.run?'Tap "Run gradient step" to train GPT-1.':'Scrape '+fmt(c.data)+' data, then start your first training run.', frac:S.run?S.run.progress:have }; }
+    if(!S.flags.deployedOnce) return {text:'Deploy GPT-1 to start earning — that opens the Seed Lab.', frac:0.5};
+  }
+  const n=S.era+1;
+  if(n<=7){ const need=ERA_TH[n];
+    return {text:'Train toward '+className(n)+' — reach capability '+fmt(need)+' to enter '+ERAS[n]+'.', frac:Math.min(1, S.bestCapability/need)};
+  }
+  // era 7: colonise
+  return {text:'Colonise the galaxy — '+Math.floor(S.stars)+' / '+STARS_TO_WIN+' stars.', frac:S.stars/STARS_TO_WIN};
+}
+function renderMission(){
+  const m=mission();
+  el.missionText.textContent=m.text;
+  const pct=Math.max(0,Math.min(1,m.frac||0));
+  el.missionFill.style.width=(pct*100)+'%';
+  el.missionPct.textContent=pct>=1?'✓':Math.floor(pct*100)+'%';
+  el.missionBar.className=m.walled?'walled':'';
+}
+let logShown=false;
+function renderLog(){
+  if(!logShown) return;
+  const arr=(S.log||[]);
+  el.labLog.innerHTML = arr.length? arr.slice().reverse().map(l=>'<div class="e">'+l+'</div>').join('') : '<div class="e">Your lab\'s story will appear here.</div>';
+  if(R) R.logDirty=false;
+}
+
 /* ---------------- render ---------------- */
 let lastStructHash='';
 function structHash(){
@@ -990,6 +1129,8 @@ function structHash(){
   return h;
 }
 function render(){
+  renderMission();
+  if(R&&R.logDirty) renderLog();
   // crown
   const f=frontierModel();
   el.capVal.textContent=fmt(S.bestCapability);
@@ -1019,7 +1160,7 @@ function render(){
   el.targetVal.textContent='0.25';
   el.runFill.style.width=(prog*100)+'%';
   if(S.run){ el.runStatus.textContent=(S.run.scripted?'First run — guaranteed success. ':'')+'Progress '+(prog*100).toFixed(0)+'%'; el.plotHint.textContent='tap to descend the loss curve'; }
-  else if(canStartRun()){ el.runStatus.textContent='Ready to train '+className(S.modelIndex); el.plotHint.textContent='start a run below'; }
+  else if(canStartRun()){ el.runStatus.textContent='Ready to train a '+className(S.era)+' model'; el.plotHint.textContent='start a run below'; }
   else { const c=runCost(S.modelIndex); el.runStatus.textContent='Next run needs '+fmt(c.data)+' data + '+fmt(c.compute)+' compute'; el.plotHint.textContent='gather resources'; }
 
   // stabilize
@@ -1042,7 +1183,12 @@ function render(){
   // auto
   if(S.era>=6){ el.autoCard.classList.remove('hidden'); } else el.autoCard.classList.add('hidden');
   // prestige
-  if(canPrestige()){ el.prestigeCard.classList.remove('hidden'); el.prestigeInfo.textContent='Banking now grants +'+researchGain()+' research (permanent ×'+(1+(S.research+researchGain())*0.03).toFixed(2)+' multipliers). Resets the lab.'; }
+  if(canPrestige()){ el.prestigeCard.classList.remove('hidden');
+    const g=researchGain(); const walled=researchWalled();
+    el.prestigeInfo.innerHTML=(walled?'<b style="color:#b14ad8">You\'re walled — only Research unlocks the next era.</b><br>':'')
+      +'Bank <b>+'+fmt(g)+' research</b> → '+fmt(S.research)+' total (permanent ×'+(1+(S.research+g)*0.04).toFixed(2)+' to all output &amp; capability). Resets cash, models, generators, ownership and era.';
+    el.prestigeBtn.textContent='★ Next generation (+'+fmt(g)+' research)';
+  }
   else el.prestigeCard.classList.add('hidden');
 
   // allocation minigame
@@ -1096,7 +1242,7 @@ function renderGens(){
       +'<div class="own">×'+cnt+'</div>';
     const btn=document.createElement('button'); btn.className='buybtn'; btn.dataset.gen=g.key;
     if(maxed){ btn.textContent='MAX'; btn.disabled=true; }
-    else { btn.innerHTML='Buy<span class="c">'+fmtCash(genCost(g.key))+'</span>'; }
+    else { const b=genBulk(g.key); const q=(R.buyMode!=='1'&&b.qty>1)?(' ×'+b.qty):''; btn.innerHTML='Buy'+q+'<span class="c">'+fmtCash(b.cost)+'</span>'; }
     item.appendChild(btn); list.appendChild(item);
   }
   if(!any) list.innerHTML='<div class="empty-note">scrape some data to begin</div>';
@@ -1190,7 +1336,12 @@ function renderTeaser(){
   el.teaserCard.style.display = (shown>0||S.era>=7)?'block':'none';
 }
 function updateBuyAffordability(){
-  document.querySelectorAll('[data-gen]').forEach(b=>{ const k=b.dataset.gen; const g=GENS.find(x=>x.key===k); if(g.max&&genCount(k)>=g.max)return; b.disabled=S.cash<genCost(k); });
+  document.querySelectorAll('[data-gen]').forEach(b=>{ const k=b.dataset.gen; const g=GENS.find(x=>x.key===k);
+    if(g.max&&genCount(k)>=g.max){ b.disabled=true; return; }
+    const bk=genBulk(k); const q=(R.buyMode!=='1'&&bk.qty>1)?(' ×'+bk.qty):'';
+    b.innerHTML='Buy'+q+'<span class="c">'+fmtCash(bk.cost)+'</span>';
+    b.disabled = bk.qty<=0 || S.cash<bk.cost;
+  });
   document.querySelectorAll('[data-up]').forEach(b=>{ const k=b.dataset.up; if(S.upgrades[k])return; b.disabled=S.cash<UPGRADES.find(x=>x.key===k).cost; });
 }
 
@@ -1225,7 +1376,14 @@ el.priceSlider.addEventListener('input', e=>{ S.ops.price=e.target.value/100; re
 el.allocSlider.addEventListener('input', e=>{ if(S.run){ S.run.alloc=e.target.value/100; el.allocPct.textContent=e.target.value+'%'; } });
 el.raiseSlider.addEventListener('input', ()=>renderFund());
 el.raiseBtn.addEventListener('click', ()=>{ const val=valuation(); const amount=val*0.6*(el.raiseSlider.value/100); if(amount>0){ actRaise(amount); sfx('deploy'); } render(); });
-el.prestigeBtn.addEventListener('click', ()=>{ if(confirm('Start a new generation? This resets the lab but banks +'+researchGain()+' research permanently.')){ actPrestige(); save(); render(); } });
+el.prestigeBtn.addEventListener('click', ()=>{ if(confirm('Start a new generation? This resets the lab (cash, models, generators, ownership, era) but banks +'+researchGain()+' research permanently — every future run is faster.')){ actPrestige(); lastStructHash=''; save(); render(); } });
+// buy mode
+el.buyMode.addEventListener('click', e=>{ const b=e.target.closest('button[data-buy]'); if(!b)return; R.buyMode=b.dataset.buy;
+  el.buyMode.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x.dataset.buy===R.buyMode)); render(); });
+// lab log toggle
+el.logToggle.addEventListener('click', ()=>{ logShown=!logShown; el.labLog.classList.toggle('hidden', !logShown); el.logToggle.textContent=logShown?'hide':'show'; if(R)R.logDirty=true; renderLog(); });
+// era story modal
+el.eraModalBtn.addEventListener('click', ()=>{ el.eraModal.classList.remove('show'); });
 
 /* settings */
 function openModal(id){ $(id).classList.add('show'); }
@@ -1256,6 +1414,9 @@ function save(){
 }
 function migrate(obj){
   if(!obj||typeof obj!=='object') return freshState();
+  // v<4 predates the prestige-loop redesign (era/research progression changed fundamentally) →
+  // start fresh on the new system but keep the player's settings.
+  if((obj.schema_version||0) < 4){ const s=freshState(); if(obj.settings) s.settings=Object.assign(s.settings, obj.settings); return s; }
   // legacy data-quality 0-1 → points
   if(typeof obj.quality==='number' && obj.quality<=1) obj.quality=5;
   const base=freshState();
@@ -1268,6 +1429,7 @@ function migrate(obj){
   merged.gens=obj.gens||{}; merged.upgrades=obj.upgrades||{}; merged.autos=obj.autos||{};
   merged.models=Array.isArray(obj.models)?obj.models:[];
   merged.run=obj.run||null;
+  merged.log=Array.isArray(obj.log)?obj.log:[];
   merged.schema_version=C.SCHEMA;
   return merged;
 }
@@ -1317,8 +1479,8 @@ function frame(now){
 /* ---------------- debug handle (harmless; used by headless balance tests) ---------------- */
 window.__pf = { get S(){return S;}, set S(v){S=v;}, tick, render, rates, opsEconomics, passiveCashPerSec, burnPerSec,
   actScrape, actClean, actStartRun, actStep, actStabilize, actDeploy, actServe, actEval, actRaise, actCapital, actPrestige,
-  buyGen, buyUpgrade, canStartRun, runCost, valuation, researchGain, canPrestige, genCost, genCount, frontierModel,
-  deployedCap, baseCeiling, GENS, UPGRADES, C, freshState, freshRuntime, get R(){return R;} };
+  buyGen, buyUpgrade, canStartRun, runCost, valuation, researchGain, canPrestige, researchWalled, genCost, genCount, frontierModel,
+  deployedCap, baseCeiling, GENS, UPGRADES, C, ERA_TH, ERA_RESEARCH, freshState, freshRuntime, get R(){return R;} };
 
 /* ---------------- boot ---------------- */
 window.addEventListener('resize', resizePlot);
@@ -1329,6 +1491,7 @@ function boot(){
   const existed=load();
   // default reduced-motion to the OS preference for new players
   if(!existed && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){ S.settings.reducedMotion=true; }
+  if(!existed && (!S.log||!S.log.length)){ addLog('Generation 1 — a garage, one GPU, and a dream. Scrape data and train GPT-1.'); }
   applyReducedMotion();
   resizePlot();
   lastStructHash=''; render();
