@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#eef1f6">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Prompt Factory">
-<title>Prompt Factory</title>
-<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Prompt%20Factory%22%2C%22short_name%22%3A%22Prompt%20Factory%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23eef1f6%22%2C%22theme_color%22%3A%22%23eef1f6%22%2C%22start_url%22%3A%22.%22%7D">
+<meta name="apple-mobile-web-app-title" content="AGI-dle">
+<title>AGI-dle</title>
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22AGI-dle%22%2C%22short_name%22%3A%22AGI-dle%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23eef1f6%22%2C%22theme_color%22%3A%22%23eef1f6%22%2C%22start_url%22%3A%22.%22%7D">
 <style>
 :root{
   --bg:#eef1f6; --card:#ffffff; --ink:#1d2330; --muted:#737d92;
@@ -380,7 +380,7 @@ input[type=range]{width:100%; margin-top:6px; accent-color:var(--signal);}
   </div>
 
   <div class="footer">
-    Prompt Factory — build the lab that builds the future.<br>
+    AGI-dle — build the lab that builds the future.<br>
     <button class="linkbtn" id="openSettings">Settings</button> · <button class="linkbtn" id="aboutBtn">About</button>
   </div>
 
@@ -420,7 +420,7 @@ input[type=range]{width:100%; margin-top:6px; accent-color:var(--signal);}
 <!-- about / intro modal -->
 <div class="modal-bg" id="aboutModal">
   <div class="modal">
-    <h3 id="aboutTitle">Prompt Factory</h3>
+    <h3 id="aboutTitle">AGI-dle</h3>
     <p id="aboutBody"></p>
     <button class="btn" id="closeAbout">Let's build</button>
   </div>
@@ -1476,7 +1476,7 @@ function syncSwitches(){ $('rmSwitch').className='switch'+(S.settings.reducedMot
 function applyReducedMotion(){ document.body.classList.toggle('reduced', S.settings.reducedMotion); }
 
 function showAbout(){
-  $('aboutTitle').textContent='Prompt Factory';
+  $('aboutTitle').textContent='AGI-dle';
   $('aboutBody').innerHTML='Run a frontier AI lab from a garage to the stars. <b>Tap to scrape data</b>, then start a training run and <b>tap to descend the loss curve</b> — that births your first model. Deploy it to earn cash, then buy generators that <b>automate your own jobs</b>. Scale through funding rounds while protecting your ownership. The dream run: reach AGI while still owning the lab.';
   openModal('aboutModal');
 }

@@ -1,6 +1,8 @@
-# Prompt Factory
+# AGI-dle
 
-A mobile-first incremental/idle game built from `prompt-factory-product-spec.md`. Run a frontier AI lab from a garage to the stars — and automate yourself out of every job in it.
+A mobile-first incremental/idle game (built from `prompt-factory-product-spec.md`). Run a frontier AI lab from a garage to the stars — and automate yourself out of every job in it.
+
+**Play:** https://danielxli.github.io/AGI-dle/
 
 **The whole game is one self-contained file: [`index.html`](index.html).** No build step, no dependencies, no server. Open it in any browser.
 

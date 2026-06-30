@@ -1,6 +1,6 @@
-# Prompt Factory — Design & Technical Notes
+# AGI-dle — Design & Technical Notes
 
-The canonical reference for how the game is built and balanced. Player-facing instructions live in [`README.md`](README.md); the original product spec is `prompt-factory-product-spec.md` (kept local, not in the public repo).
+The canonical reference for how the game is built and balanced. Player-facing instructions live in [`README.md`](README.md); the original product spec is `prompt-factory-product-spec.md` (kept local, not in the public repo). *(The game was renamed from its working title "Prompt Factory" to **AGI-dle**.)*
 
 > **One file.** The entire game — engine, UI, styling, save system — is `index.html`. No build step, no dependencies, no server. It runs from `file://` or any static host.
 
@@ -121,7 +121,7 @@ Upgrades: flashAttention 500 (×1.6 compute) · moe 1.6k (×1.5 cap) · chinchil
 ---
 
 ## 7. Deployment
-- Public repo: `github.com/danielxli/prompt-factory`. Live: **https://danielxli.github.io/prompt-factory/** (GitHub Pages, main branch root).
+- Public repo: `github.com/danielxli/AGI-dle`. Live: **https://danielxli.github.io/AGI-dle/** (GitHub Pages, main branch root).
 - Iterate: edit `index.html` → `git commit && git push` → Pages rebuilds in ~30s (HTTPS, so canvas/audio/haptics work on iOS). CDN edge cache can lag a minute; cache-bust to verify.
 
 ---
