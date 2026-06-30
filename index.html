@@ -161,6 +161,23 @@ input[type=range]{width:100%; margin-top:6px; accent-color:var(--signal);}
 .switch i{position:absolute; top:3px; left:3px; width:21px; height:21px; border-radius:50%; background:#fff; transition:left .15s; box-shadow:0 1px 3px rgba(0,0,0,.2);}
 .switch.on i{left:22px;}
 
+/* breakthroughs (golden-cookie variable rewards) */
+#breakthroughs{position:fixed; inset:0; pointer-events:none; z-index:65; overflow:hidden;}
+.bt{position:absolute; pointer-events:auto; cursor:pointer; width:74px; height:74px; margin:-37px 0 0 -37px;
+  border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 35% 30%,#ffe27a,#f2a900 60%,#d98c00);
+  box-shadow:0 0 0 4px #f2a90033, 0 6px 22px #f2a90066; color:#5a3d00; font-weight:800;
+  animation:btIn .3s ease-out, btFloat 3s ease-in-out infinite; will-change:transform;}
+.bt .ic{font-size:26px; line-height:1;} .bt .lb{font-size:9px; letter-spacing:.02em; margin-top:1px; text-transform:uppercase;}
+.bt.frenzy{background:radial-gradient(circle at 35% 30%,#ffe27a,#f2a900 60%,#d98c00);}
+.bt.over{background:radial-gradient(circle at 35% 30%,#bfe0ff,#4d6bff 65%,#3b54cc); color:#fff;}
+.bt.cash{background:radial-gradient(circle at 35% 30%,#b6f0d4,#12b886 65%,#0c8f68); color:#fff;}
+@keyframes btIn{from{transform:scale(0); opacity:0;}to{transform:scale(1); opacity:1;}}
+@keyframes btFloat{0%,100%{transform:translateY(0) scale(1);}50%{transform:translateY(-8px) scale(1.05);}}
+.bt .ring{position:absolute; inset:-4px; border-radius:50%; border:3px solid #fff8; clip-path:inset(0);}
+.buffchip{display:inline-flex; align-items:center; gap:4px; font-family:var(--mono); font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; margin-left:6px;}
+.buffchip.prod{background:#fff4d6; color:#9a6b00;} .buffchip.run{background:#e6ecff; color:#3b54cc;}
+
 /* floating pops */
 #pops{position:fixed; inset:0; pointer-events:none; z-index:60; overflow:hidden;}
 .pop{position:absolute; font-family:var(--mono); font-weight:800; font-size:16px; color:var(--signal); transform:translate(-50%,-50%); animation:popUp .72s ease-out forwards; text-shadow:0 1px 2px rgba(255,255,255,.8);}
@@ -370,6 +387,7 @@ input[type=range]{width:100%; margin-top:6px; accent-color:var(--signal);}
 </div>
 </div>
 
+<div id="breakthroughs"></div>
 <div id="pops"></div>
 <div id="toasts"></div>
 <button id="gear"></button>
@@ -430,6 +448,7 @@ const C = {
   OFFLINE_RATE: 0.5, OFFLINE_CAP_S: 12*3600,
   RESEARCH_K: 5, RESEARCH_THRESH: 1,
   ALLOC_P: 1.6,
+  BOOST_PER_TAP: 0.05, BOOST_CAP: 1.5,   // tapping a run banks up to ×2.5 capability
   SCHEMA: 4,
 };
 const CLASSES = ['GPT-1','GPT-2','GPT-3','GPT-4 class','GPT-5 class','Superhuman-narrow','AGI','ASI','Transcendent intelligence'];
@@ -508,6 +527,7 @@ function freshState(){
     log:[],
     bestEverCapability:0, generation:1,
     ops:{ trainFraction:0.5, price:1.0 },
+    buffs:[],
     capital:{ debt:0, credits:0, prepay:false, debtBurn:0 },
     autos:{},
     evalCd:0, eventTimer:38, activeEvent:null,
@@ -544,6 +564,10 @@ function dataMult(){ return 1; }
 function capabilityMult(){ let m=1; if(S.upgrades.moe)m*=1.5; if(S.upgrades.testTime)m*=1.8; return m; }
 function serveMult(){ let m=1; if(S.upgrades.rlhf)m*=1.6; if(S.upgrades.distillation)m*=1.4; return m; }
 function qualityFactor(){ return 1 + S.quality*C.Q_COEF; }
+/* temporary buffs from Breakthrough (golden-cookie) taps */
+function frenzyMult(){ let m=1; if(S.buffs) for(const b of S.buffs) if(b.type==='prod') m*=b.mult; return m; }
+function runSpeedMult(){ let m=1; if(S.buffs) for(const b of S.buffs) if(b.type==='run') m*=b.mult; return m; }
+function buffTimeLeft(type){ let t=0; if(S.buffs) for(const b of S.buffs) if(b.type===type) t=Math.max(t,b.t); return t; }
 function deployedCap(){ let c=0; for(const m of S.models) if(m.deployed && m.capability>c)c=m.capability; return c; }
 function frontierModel(){ let best=null; for(const m of S.models){ if(!best||m.capability>best.capability)best=m; } return best; }
 function genCount(k){ return S.gens[k]||0; }
@@ -591,7 +615,7 @@ function passiveCashPerSec(){
   let c=0;
   c += genCount('inference')*deployedCap()*0.045*serveMult();
   if(S.era>=3){ c += opsEconomics().cashPerSec; }
-  return c;
+  return c*frenzyMult();
 }
 function burnPerSec(){ return S.capital.debtBurn; }
 
@@ -608,7 +632,7 @@ function bumpCombo(){
 function actScrape(x,y){
   if(S.autos.autoScrape) return;
   bumpCombo(); const crit=rollCrit();
-  const gain=C.SCRAPE_BASE*R.combo*crit;
+  const gain=C.SCRAPE_BASE*R.combo*crit*frenzyMult();
   S.data+=gain;
   pop('+'+fmt(gain), x,y, crit>1?'crit':'');
   if(crit>1){ sfx('crit'); vibrate(12); } else sfx('tap');
@@ -627,16 +651,18 @@ function actStartRun(){
   if(!canStartRun()) return;
   const c=runCost(S.modelIndex);
   S.data-=c.data; S.compute-=c.compute;
-  S.run={ progress:0, instability:null, scripted: !S.flags.firstRunDone, alloc:S.ops?0.5:0.5, divergeStrength:0 };
+  S.run={ progress:0, instability:null, scripted: !S.flags.firstRunDone, alloc:S.ops?0.5:0.5, divergeStrength:0, boost:0 };
   R.plotPath=[]; R.dirty=true;
   toast('Run committed — '+fmt(c.data)+' data, '+fmt(c.compute)+' compute','info');
 }
 function actStep(x,y){
   if(!S.run) return;
   bumpCombo(); const crit=rollCrit();
-  const inc=C.STEP_BASE*qualityFactor()*crit*R.combo;
+  const inc=C.STEP_BASE*qualityFactor()*crit*R.combo*runSpeedMult();
   S.run.progress=Math.min(1, S.run.progress+inc);
-  pop((crit>1?'CRIT ':'')+'−loss', x,y, crit>1?'crit':'');
+  // tapping banks a "training boost" that multiplies this model's capability — keeps the hero verb meaningful all game
+  S.run.boost=Math.min(C.BOOST_CAP, (S.run.boost||0)+C.BOOST_PER_TAP*R.combo*(crit>1?crit*0.5:1));
+  pop((crit>1?'CRIT ':'')+'+boost', x,y, crit>1?'crit':'');
   if(crit>1){ shake(); sfx('crit'); vibrate(12); } else sfx('tap');
   if(S.run.progress>=1) resolveRun();
 }
@@ -652,7 +678,8 @@ function ratioEfficiency(){
 function resolveRun(){
   const idx=S.modelIndex;
   const eff=ratioEfficiency();
-  let capTarget=baseCeiling(idx)*qualityFactor()*eff*capabilityMult()*researchMult();
+  const boost=1+(S.run.boost||0);   // your hands-on tuning this run
+  let capTarget=baseCeiling(idx)*qualityFactor()*eff*capabilityMult()*researchMult()*boost;
   if(S.activeEvent && S.activeEvent.capMult) capTarget*=S.activeEvent.capMult;
   let outcome='success';
   if(!S.run.scripted && S.era>=2 && eff<0.4){ outcome='plateau'; capTarget*=0.3; }
@@ -679,7 +706,12 @@ function fireInstability(){
   sfx('alarm'); vibrate(60);
 }
 function actStabilize(){
-  if(S.run&&S.run.instability){ S.run.instability=null; toast('Stabilised ✓','good'); sfx('eval'); }
+  if(S.run&&S.run.instability){
+    S.run.instability=null;
+    S.run.boost=Math.min(C.BOOST_CAP,(S.run.boost||0)+0.25);   // reward the save with bonus capability
+    const cash=deployedCap()*C.SERVE_BASIS*8*serveMult(); if(cash>0){ S.cash+=cash; S.cumCash+=cash; }
+    toast('Stabilised ✓ +boost'+(cash>0?' +'+fmtCash(cash):''),'good'); sfx('eval'); vibrate(15);
+  }
 }
 function actDeploy(){
   const f=frontierModel(); if(!f) return;
@@ -699,7 +731,7 @@ function actServe(x,y){
   if(S.autos.autoServe) return;
   const cap=deployedCap(); if(cap<=0){ toast('Deploy a model first','warn'); return; }
   bumpCombo(); const crit=rollCrit();
-  const gain=cap*C.SERVE_BASIS*R.combo*crit*serveMult();
+  const gain=cap*C.SERVE_BASIS*R.combo*crit*serveMult()*frenzyMult();
   S.cash+=gain; S.cumCash+=gain;
   pop('+'+fmtCash(gain), x,y,'cash');
   if(crit>1){ sfx('crit'); vibrate(12); } else sfx('tap');
@@ -844,6 +876,8 @@ function tick(dt){
   if(net>0){ S.cumCash+=net*dt; }
   // combo decay
   if(R.combo>1){ R.combo=Math.max(1, R.combo - C.COMBO_DECAY_PER_S*dt); }
+  // expire temporary buffs (Breakthrough frenzy/overclock)
+  if(S.buffs&&S.buffs.length){ for(const b of S.buffs) b.t-=dt; const had=S.buffs.length; S.buffs=S.buffs.filter(b=>b.t>0); if(S.buffs.length!==had) R.dirty=true; }
   // run auto progress
   if(S.run){
     const oc=genCount('optimizer');
@@ -851,7 +885,7 @@ function tick(dt){
       let boost=1; if(S.era>=3) boost=0.4+S.ops.trainFraction*1.6;
       // diminishing returns on stacking optimizers so a run can't complete in a blink
       const eff=Math.sqrt(oc);
-      const inc=C.STEP_BASE*qualityFactor()*eff*C.OPT_RATE*boost*dt;
+      const inc=C.STEP_BASE*qualityFactor()*eff*C.OPT_RATE*boost*runSpeedMult()*dt;
       S.run.progress=Math.min(1, S.run.progress+inc);
     }
     // instability
@@ -941,7 +975,7 @@ function tickEvents(dt){
 
 /* event compute boost integrated into rates() */
 const _origRates=rates;
-function ratesBoosted(){ const r=_origRates(); if(S.activeEvent&&S.activeEvent.computeBoost) r.compute*=S.activeEvent.computeBoost; return r; }
+function ratesBoosted(){ const r=_origRates(); if(S.activeEvent&&S.activeEvent.computeBoost) r.compute*=S.activeEvent.computeBoost; const fm=frenzyMult(); r.compute*=fm; r.data*=fm; return r; }
 // override
 rates = ratesBoosted; // eslint-disable-line
 
@@ -1028,6 +1062,42 @@ function sfx(kind){
   }
 }
 
+/* ---------------- breakthroughs (golden-cookie variable rewards) ---------------- */
+const BT_TYPES=[
+  {key:'frenzy', cls:'frenzy', ic:'⚡', lb:'Frenzy', weight:3},
+  {key:'over',   cls:'over',   ic:'🚀', lb:'Overclock', weight:2},
+  {key:'cash',   cls:'cash',   ic:'💰', lb:'Windfall', weight:3},
+];
+let btTimer=null;
+function scheduleBreakthrough(){ clearTimeout(btTimer); const delay=(30+Math.random()*42)*1000; btTimer=setTimeout(()=>{ spawnBreakthrough(); scheduleBreakthrough(); }, delay); }
+function pickBT(){ const era=S.era; const pool=BT_TYPES.slice(); let tot=0; pool.forEach(t=>tot+=t.weight); let r=Math.random()*tot; for(const t of pool){ if((r-=t.weight)<=0) return t; } return pool[0]; }
+function spawnBreakthrough(){
+  if(S.era<1 || document.hidden || S.flags.won) return;
+  if(document.querySelectorAll('#breakthroughs .bt').length>=2) return;
+  const t=pickBT();
+  const d=document.createElement('div'); d.className='bt '+t.cls;
+  d.innerHTML='<div class="ic">'+t.ic+'</div><div class="lb">'+t.lb+'</div>';
+  const m=46, x=m+Math.random()*(window.innerWidth-2*m), y=140+Math.random()*(window.innerHeight*0.5);
+  d.style.left=x+'px'; d.style.top=y+'px';
+  let gone=false;
+  const claim=(ev)=>{ if(gone)return; gone=true; if(ev){ev.preventDefault();ev.stopPropagation();} applyBreakthrough(t.key, x, y); d.remove(); };
+  d.addEventListener('pointerdown', claim);
+  document.getElementById('breakthroughs').appendChild(d);
+  sfx('eval');
+  setTimeout(()=>{ if(!gone){ d.style.transition='opacity .4s, transform .4s'; d.style.opacity='0'; d.style.transform='scale(.5)'; setTimeout(()=>d.remove(),420); } }, 8500);
+}
+function applyBreakthrough(key,x,y){
+  firstGesture();
+  if(key==='frenzy'){ S.buffs.push({type:'prod', mult:7, t:18}); toast('⚡ Frenzy! ×7 production for 18s','epic'); pop('⚡ ×7 FRENZY', x,y,'crit'); }
+  else if(key==='over'){ S.buffs.push({type:'run', mult:4, t:18}); toast('🚀 Overclock! ×4 training speed for 18s','epic'); pop('🚀 ×4 SPEED', x,y,'crit'); }
+  else if(key==='cash'){
+    const inc=passiveCashPerSec(); const base=Math.max(inc*45, (deployedCap()||1)*C.SERVE_BASIS*25*serveMult(), 20);
+    S.cash+=base; S.cumCash+=base; toast('💰 Windfall! +'+fmtCash(base),'epic'); pop('+'+fmtCash(base), x,y,'cash');
+  }
+  addLog('✦ Breakthrough — '+(key==='frenzy'?'Frenzy ×7 production':key==='over'?'Overclock ×4 training':'cash windfall')+'.');
+  sfx('crit'); shake(); vibrate([10,30,10]); R.dirty=true;
+}
+
 /* ---------------- canvas loss plot ---------------- */
 const ctx=el.plot.getContext('2d');
 let plotW=0,plotH=0,dpr=1;
@@ -1105,7 +1175,12 @@ function mission(){
 }
 function renderMission(){
   const m=mission();
-  el.missionText.textContent=m.text;
+  let txt=m.text;
+  const fz=buffTimeLeft('prod'), ov=buffTimeLeft('run');
+  let chips='';
+  if(fz>0) chips+='<span class="buffchip prod">⚡×7 '+Math.ceil(fz)+'s</span>';
+  if(ov>0) chips+='<span class="buffchip run">🚀×4 '+Math.ceil(ov)+'s</span>';
+  el.missionText.innerHTML=txt+chips;
   const pct=Math.max(0,Math.min(1,m.frac||0));
   el.missionFill.style.width=(pct*100)+'%';
   el.missionPct.textContent=pct>=1?'✓':Math.floor(pct*100)+'%';
@@ -1159,7 +1234,7 @@ function render(){
   el.stepVal.textContent = S.run?Math.floor(prog*100):0;
   el.targetVal.textContent='0.25';
   el.runFill.style.width=(prog*100)+'%';
-  if(S.run){ el.runStatus.textContent=(S.run.scripted?'First run — guaranteed success. ':'')+'Progress '+(prog*100).toFixed(0)+'%'; el.plotHint.textContent='tap to descend the loss curve'; }
+  if(S.run){ const bo=(1+(S.run.boost||0)); el.runStatus.textContent=(S.run.scripted?'First run — guaranteed success. ':'')+'Progress '+(prog*100).toFixed(0)+'% · tap to boost this model ×'+bo.toFixed(2); el.plotHint.textContent='tap to descend the loss curve'; }
   else if(canStartRun()){ el.runStatus.textContent='Ready to train a '+className(S.era)+' model'; el.plotHint.textContent='start a run below'; }
   else { const c=runCost(S.modelIndex); el.runStatus.textContent='Next run needs '+fmt(c.data)+' data + '+fmt(c.compute)+' compute'; el.plotHint.textContent='gather resources'; }
 
@@ -1207,7 +1282,7 @@ function render(){
 
 function updatePrimary(){
   const b=el.primaryBtn;
-  if(S.run){ b.innerHTML='Run gradient step<span class="sub" id="primarySub">−loss · ×'+R.combo.toFixed(1)+' combo</span>'; b.dataset.act='step'; b.className='btn hero-tap'; }
+  if(S.run){ const boost=(1+(S.run.boost||0)); b.innerHTML='Run gradient step<span class="sub" id="primarySub">model ×'+boost.toFixed(2)+' · ×'+R.combo.toFixed(1)+' combo</span>'; b.dataset.act='step'; b.className='btn hero-tap'+(boost>1.8?' gold':''); }
   else if(canStartRun()){ const c=runCost(S.modelIndex); b.innerHTML='Start training run<span class="sub">'+fmt(c.data)+' data · '+fmt(c.compute)+' compute</span>'; b.dataset.act='start'; b.className='btn hero-tap teal'; }
   else if(S.autos.autoScrape){ b.innerHTML='Auto-ingesting data…<span class="sub">automated</span>'; b.dataset.act=''; b.className='btn hero-tap ghost'; b.disabled=true; return; }
   else { b.innerHTML='Scrape data<span class="sub">+'+fmt(C.SCRAPE_BASE*R.combo)+' data</span>'; b.dataset.act='scrape'; b.className='btn hero-tap'; }
@@ -1429,6 +1504,7 @@ function migrate(obj){
   merged.gens=obj.gens||{}; merged.upgrades=obj.upgrades||{}; merged.autos=obj.autos||{};
   merged.models=Array.isArray(obj.models)?obj.models:[];
   merged.run=obj.run||null;
+  merged.buffs=[];   // transient — never restore stale buffs
   merged.log=Array.isArray(obj.log)?obj.log:[];
   merged.schema_version=C.SCHEMA;
   return merged;
@@ -1480,7 +1556,8 @@ function frame(now){
 window.__pf = { get S(){return S;}, set S(v){S=v;}, tick, render, rates, opsEconomics, passiveCashPerSec, burnPerSec,
   actScrape, actClean, actStartRun, actStep, actStabilize, actDeploy, actServe, actEval, actRaise, actCapital, actPrestige,
   buyGen, buyUpgrade, canStartRun, runCost, valuation, researchGain, canPrestige, researchWalled, genCost, genCount, frontierModel,
-  deployedCap, baseCeiling, GENS, UPGRADES, C, ERA_TH, ERA_RESEARCH, freshState, freshRuntime, get R(){return R;} };
+  deployedCap, baseCeiling, GENS, UPGRADES, C, ERA_TH, ERA_RESEARCH, freshState, freshRuntime,
+  applyBreakthrough, frenzyMult, runSpeedMult, get R(){return R;} };
 
 /* ---------------- boot ---------------- */
 window.addEventListener('resize', resizePlot);
@@ -1496,6 +1573,7 @@ function boot(){
   resizePlot();
   lastStructHash=''; render();
   if(!S.flags.intro){ showAbout(); }
+  scheduleBreakthrough();
   requestAnimationFrame(frame);
 }
 boot();

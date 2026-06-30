@@ -9,7 +9,9 @@ A mobile-first incremental/idle game built from `prompt-factory-product-spec.md`
 The **mission bar** under the crown always tells you the next goal. Broadly:
 
 1. **Tap "Scrape data"** to gather data, then **Start a training run**.
-2. **Tap "Run gradient step"** to descend the loss curve — that births GPT-1. Watch for **crits** (gold) and build a **combo** by tapping fast.
+2. **Tap "Run gradient step"** to descend the loss curve — that births GPT-1. Tapping never stops mattering: even once the auto-optimizer runs your training, **tapping a run banks a "training boost"** (up to ×2.5) that makes that model far bigger — so active play always beats idling. Watch for **crits** (gold) and build a **combo** by tapping fast.
+   - **Breakthroughs:** a rare ✦ token drifts across the screen every ~30–70s — tap it for **Frenzy (×7 production)**, **Overclock (×4 training speed)**, or a cash **windfall**.
+   - **Catch instability:** when a run spikes, hit **Stabilize** in time for bonus capability and cash.
 3. **Deploy** the model to earn cash by **Serving requests**.
 4. Spend cash on **generators** that do your jobs for you (web scraper → curation → auto-optimizer). Use the **×1 / ×10 / Max** toggle to buy in bulk. Once the auto-optimizer is online, runs train themselves — you've automated your first job.
 5. Scale through 7 eras, each introducing a mechanic with a short story card: deploy & instability → allocation minigame & fundraising → the **Operations** train/serve compute split → capital structure & pricing → self-funding → **AGI** → the **Dyson swarm & galactic expansion**.
